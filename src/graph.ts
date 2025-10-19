@@ -1,4 +1,4 @@
-import { randomId } from "./utils"
+import { distance2D, randomId } from "./utils"
 import { AudioPlugin } from "./plugins/plugin"
 
 export enum GraphNodeType {
@@ -36,7 +36,8 @@ const GRAPH_CONFIG = {
 }
 
 type InitGraphConfig = {
-    onUpdate: () => any;
+    audioContext: AudioContext,
+    onUpdate: (graph: GraphState) => any;
 }
 
 export const initGraph = (config: InitGraphConfig) => {
@@ -46,37 +47,16 @@ export const initGraph = (config: InitGraphConfig) => {
             { type: GraphNodeType.Output, id: randomId(), position: { x: 0, y: 0 }, connections: {} },
         ],
     };
-
-    const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
-    const graphCtx = graphCanvas!.getContext("2d")!;
-
-    const spawnGraphNode = (type: GraphNodeType, x: number, y: number): GraphNode => {
-        const newNode: GraphNode = {
-            id: randomId(),
-            type,
-            position: { x, y },
-            connections: {},
-        };
-        graph.nodes.push(newNode);
-        return newNode;
-    };
-
-    // TEST Connections
-    (() => {
-        const lastNode = [[200, 100], [450, 100], [350, 250]]
-            .map(node => spawnGraphNode(GraphNodeType.Plugin, node[0], node[1]))
-        //     .reduce((a, node) => {
-        //         a.connections[node.id] = 1;
-        //         return node;
-        //     }, graph.nodes[0]);
-        // lastNode.connections[graph.nodes[1].id] = 1;
-    })();
-
     const hoveredNode = {
         isConnector: false,
         isInput: false,
         nodeId: "",
     };
+
+    const pluginWindowEl = document.getElementById("audio-plugin");
+    const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
+    const graphCtx = graphCanvas!.getContext("2d")!;
+
     const renderGraph = () => {
         graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
 
@@ -125,7 +105,8 @@ export const initGraph = (config: InitGraphConfig) => {
             // draw node label
             graphCtx.fillStyle = "#FFFFFF";
             graphCtx.font = "14px Arial";
-            graphCtx.fillText(node.type.toUpperCase(), node.position.x + 10, node.position.y + 25);
+            const nodeName = (node.instance?.name || node.type.toUpperCase());
+            graphCtx.fillText(nodeName, node.position.x + 10, node.position.y + 25);
 
             // draw connections
             for (const targetId in node.connections) {
@@ -177,9 +158,6 @@ export const initGraph = (config: InitGraphConfig) => {
             }
         }
         return null;
-    }
-    const distance2D = (x: number, y: number, x1: number, y1: number): number => {
-        return Math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2);
     }
     const inGraphNodeConnector = (x: number, y: number) => {
         const radius = GRAPH_CONFIG.CONNNECTOR_RADIUS_HOVERED;
@@ -239,6 +217,9 @@ export const initGraph = (config: InitGraphConfig) => {
                 x: offsetX - insideNode.position.x,
                 y: offsetY - insideNode.position.y,
             };
+            if (graph.selectedNode.type === GraphNodeType.Plugin) {
+                graph.selectedNode.instance!.render(pluginWindowEl);
+            }
         }
     });
 
@@ -277,7 +258,14 @@ export const initGraph = (config: InitGraphConfig) => {
 
     const createConnection = (input: GraphNode, output: GraphNode) => {
         console.log("Creating new connection between", input, output);
-        
+
+        // reconnecting removes the connection
+        if (input.connections[output.id]) {
+            delete input.connections[output.id]
+            config.onUpdate(graph);
+            return true;
+        }
+
         // find circular dependencies using DFS
         const stack: string[] = [output.id];
         const visited = new Set<string>();
@@ -297,6 +285,8 @@ export const initGraph = (config: InitGraphConfig) => {
         }
 
         input.connections[output.id] = 1;
+        config.onUpdate(graph);
+
         return true;
     };
 
@@ -331,11 +321,11 @@ export const initGraph = (config: InitGraphConfig) => {
         const outputNode = graph.nodes.find((node) => node.type === GraphNodeType.Output);
         if (inputNode && outputNode) {
             inputNode.position = {
-                x: 0,
+                x: 50,
                 y: graphCanvas.height / 2,
             };
             outputNode.position = {
-                x: graphCanvas.width - 100,
+                x: graphCanvas.width - 200,
                 y: graphCanvas.height / 2,
             };
         }
@@ -343,5 +333,36 @@ export const initGraph = (config: InitGraphConfig) => {
     onResize();
     window.addEventListener("resize", onResize);
 
-    return graph;
+    return {
+        apply(source: AudioNode, destination: AudioDestinationNode) {
+            for (const node of graph.nodes) {
+                if (node.type === GraphNodeType.Output) continue;
+                const leftNode = node.type === GraphNodeType.Input ? source : node.instance!.output;
+                for (const childId in node.connections) {
+                    const child = graph.nodes.find(n => n.id === childId);
+                    if (!child || child.type === GraphNodeType.Input) {
+                        // invalid connection
+                        delete node.connections[childId];
+                        continue;
+                    }
+                    const rightNode = child.type === GraphNodeType.Output ? destination : child.instance!.input;
+                    leftNode.connect(rightNode);
+                }
+            }
+        },
+        addPlugin(plugin: AudioPlugin) {
+            const newNode: GraphNode = {
+                id: randomId(),
+                type: GraphNodeType.Plugin,
+                position: {
+                    x: graphCanvas.width / 2,
+                    y: graphCanvas.height / 2,
+                },
+                instance: plugin,
+                connections: {},
+            };
+            graph.nodes.push(newNode);
+            return true;
+        },
+    }
 }
