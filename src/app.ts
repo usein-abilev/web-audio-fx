@@ -248,60 +248,6 @@ window.addEventListener("load", async () => {
     };
     requestAnimationFrame(renderCanvas);
 
-    // const audioAnalyser = state.audioContext.createAnalyser();
-    // audioAnalyser.fftSize = 32768;
-
-    // (() => {
-    //     const analyserCanvas = document.getElementById("frequency-analyzer")! as HTMLCanvasElement;
-    //     analyserCanvas.width = 500;
-    //     const analyserCanvasCtx = analyserCanvas.getContext("2d")!;
-
-    //     const analyserData = new Float32Array(audioAnalyser.frequencyBinCount);
-
-    //     function freqToX(freq: number, canvasWidth: number, sampleRate: number, fftSize: number) {
-    //         const nyquist = sampleRate / 2;
-    //         const minFreq = 20; // start at 20 Hz
-    //         const maxFreq = nyquist;
-
-    //         // logarithmic mapping
-    //         const minLog = Math.log10(minFreq);
-    //         const maxLog = Math.log10(maxFreq);
-    //         const freqLog = Math.log10(freq);
-
-    //         return ((freqLog - minLog) / (maxLog - minLog)) * canvasWidth;
-    //     }
-
-    //     const visualizeAnalyser = () => {
-    //         analyserCanvasCtx.clearRect(0, 0, analyserCanvas.width, analyserCanvas.height);
-
-    //         audioAnalyser.getFloatFrequencyData(analyserData);
-
-    //         analyserCanvasCtx.beginPath();
-    //         for (let i = 1; i < analyserData.length; i++) {
-    //             const freq = (i * state.audioContext.sampleRate) / audioAnalyser.fftSize;
-    //             if (freq < 20) continue; // skip subsonic
-
-    //             const x = freqToX(freq, analyserCanvas.width, state.audioContext.sampleRate, audioAnalyser.fftSize);
-    //             const magnitude = analyserData[i]; // in dB
-    //             const y = canvas.height - ((magnitude + 140) / 140) * canvas.height;
-
-    //             if (i === 1) {
-    //                 analyserCanvasCtx.moveTo(x, y);
-    //             } else {
-    //                 analyserCanvasCtx.lineTo(x, y);
-    //             }
-    //         }
-    //         analyserCanvasCtx.strokeStyle = "rgba(59, 59, 59, 1)";
-    //         analyserCanvasCtx.fillStyle = "#666666ff";
-    //         analyserCanvasCtx.fill();
-    //         analyserCanvasCtx.stroke();
-
-    //         requestAnimationFrame(visualizeAnalyser);
-    //     };
-
-    //     visualizeAnalyser();
-    //     console.log("audioAnalyser.frequencyBinCount", audioAnalyser.frequencyBinCount);
-    // })();
     const createToggleRecord = () => {
         const constraints: MediaStreamConstraints = {
             audio: {
