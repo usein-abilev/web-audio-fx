@@ -28,7 +28,7 @@ export type GraphState = {
 }
 
 const GRAPH_CONFIG = {
-    NODE_WIDTH: 100,
+    NODE_WIDTH: 150,
     NODE_HEIGHT: 50,
     CONNECTOR_GAP: 15,
     CONNECTOR_RADIUS: 5,
@@ -53,7 +53,7 @@ export const initGraph = (config: InitGraphConfig) => {
         nodeId: "",
     };
 
-    const pluginWindowEl = document.getElementById("audio-plugin");
+    const pluginWindowEl = document.getElementById("audio-plugin")!;
     const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
     const graphCtx = graphCanvas!.getContext("2d")!;
 
@@ -67,7 +67,7 @@ export const initGraph = (config: InitGraphConfig) => {
             graphCtx.beginPath();
             graphCtx.fillStyle = "transparent";
             graphCtx.strokeStyle = selected ? "steelblue" : "#555";
-            graphCtx.roundRect(node.position.x, node.position.y, 100, 50, 5);
+            graphCtx.roundRect(node.position.x, node.position.y, GRAPH_CONFIG.NODE_WIDTH, GRAPH_CONFIG.NODE_HEIGHT, 5);
             graphCtx.closePath();
             graphCtx.stroke();
             graphCtx.fill();
@@ -212,14 +212,14 @@ export const initGraph = (config: InitGraphConfig) => {
         const insideNode = inGraphNode(offsetX, offsetY);
         if (insideNode) {
             setCursorType("grabbing");
+            if (graph.selectedNode?.id !== insideNode.id && insideNode.type === GraphNodeType.Plugin) {
+                insideNode.instance!.render(pluginWindowEl);
+            }
             graph.selectedNode = insideNode;
             graph.draggingAnchor = {
                 x: offsetX - insideNode.position.x,
                 y: offsetY - insideNode.position.y,
             };
-            if (graph.selectedNode.type === GraphNodeType.Plugin) {
-                graph.selectedNode.instance!.render(pluginWindowEl);
-            }
         }
     });
 
@@ -261,6 +261,9 @@ export const initGraph = (config: InitGraphConfig) => {
 
         // reconnecting removes the connection
         if (input.connections[output.id]) {
+            if (input.type === GraphNodeType.Plugin && input.instance) {
+                input.instance.output.disconnect();
+            }
             delete input.connections[output.id]
             config.onUpdate(graph);
             return true;

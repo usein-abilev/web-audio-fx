@@ -48,6 +48,8 @@ export class ReverbPlugin extends AudioPlugin {
                 .then((buffer) => this.setIRBuffer(buffer))
                 .catch((error) => console.error("Error fetching IR audio buffer:", error));
         };
+        onTypeChange(null, IMPULSE_RESPONSES[0].path);
+
         const container = builder.createContainer(
             builder.createSelect("Type", onTypeChange, typeOptions),
             builder.createSlider("Mix", (ev: any) => this.setMixValue(+ev.target.value / 100), {
