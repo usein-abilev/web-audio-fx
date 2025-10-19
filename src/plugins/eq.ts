@@ -42,7 +42,14 @@ export class Equalizer7BandPlugin extends AudioPlugin {
                 { ...options, defaultValue: String(band?.gain.value || 0) }
             );
         });
-        const container = uiBuilder.createContainer(...children);
+        const container = uiBuilder.createContainer(
+            ...children,
+            uiBuilder.createSlider("Mix", (ev: any) => this.setMixValue(+ev.target.value / 100), {
+                min: "0",
+                max: "100",
+                defaultValue: String(this.getMixValue() * 100),
+            })
+        );
         parent.appendChild(container);
     }
 }

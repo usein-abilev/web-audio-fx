@@ -1,11 +1,13 @@
+import { fetchAudioAsArrayBuffer } from "./utils"
 import { initGraph, type GraphState } from "./graph"
 import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
+import { DelayPlugin } from "./plugins/delay";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
     sampleRate: AUDIO_SAMPLE_RATE,
-};
+}
 
 type PlaybackState = {
     startedTime: number;
@@ -61,18 +63,12 @@ const PLUGINS = [
         name: "EQ (7 Band)",
         getInstance: (actx: AudioContext) => new Equalizer7BandPlugin(actx),
     },
+    {
+        id: "delay",
+        name: "Delay",
+        getInstance: (actx: AudioContext) => new DelayPlugin(actx),
+    },
 ];
-
-const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBuffer> => {
-    try {
-        const response = await fetch(audioUrl);
-        const buffer = await response.arrayBuffer();
-        return buffer;
-    } catch (error) {
-        console.error("Error fetching audio array buffer:", error);
-        throw new Error("Error fetching audio data");
-    }
-};
 
 window.addEventListener("load", async () => {
     const loadSampleButton = document.getElementById("load-sample")!;
@@ -93,7 +89,7 @@ window.addEventListener("load", async () => {
     (() => {
         for (const plugin of PLUGINS) {
             const option = document.createElement("option");
-            option.value = plugin.id; 
+            option.value = plugin.id;
             option.innerText = plugin.name;
             pluginSelector.add(option);
         }
@@ -107,143 +103,20 @@ window.addEventListener("load", async () => {
         });
     })();
 
-    // const audioAnalyser = state.audioContext.createAnalyser();
-    // audioAnalyser.fftSize = 32768;
-
-    // (() => {
-    //     const analyserCanvas = document.getElementById("frequency-analyzer")! as HTMLCanvasElement;
-    //     analyserCanvas.width = 500;
-    //     const analyserCanvasCtx = analyserCanvas.getContext("2d")!;
-
-    //     const analyserData = new Float32Array(audioAnalyser.frequencyBinCount);
-
-    //     function freqToX(freq: number, canvasWidth: number, sampleRate: number, fftSize: number) {
-    //         const nyquist = sampleRate / 2;
-    //         const minFreq = 20; // start at 20 Hz
-    //         const maxFreq = nyquist;
-
-    //         // logarithmic mapping
-    //         const minLog = Math.log10(minFreq);
-    //         const maxLog = Math.log10(maxFreq);
-    //         const freqLog = Math.log10(freq);
-
-    //         return ((freqLog - minLog) / (maxLog - minLog)) * canvasWidth;
-    //     }
-
-    //     const visualizeAnalyser = () => {
-    //         analyserCanvasCtx.clearRect(0, 0, analyserCanvas.width, analyserCanvas.height);
-
-    //         audioAnalyser.getFloatFrequencyData(analyserData);
-
-    //         analyserCanvasCtx.beginPath();
-    //         for (let i = 1; i < analyserData.length; i++) {
-    //             const freq = (i * state.audioContext.sampleRate) / audioAnalyser.fftSize;
-    //             if (freq < 20) continue; // skip subsonic
-
-    //             const x = freqToX(freq, analyserCanvas.width, state.audioContext.sampleRate, audioAnalyser.fftSize);
-    //             const magnitude = analyserData[i]; // in dB
-    //             const y = canvas.height - ((magnitude + 140) / 140) * canvas.height;
-
-    //             if (i === 1) {
-    //                 analyserCanvasCtx.moveTo(x, y);
-    //             } else {
-    //                 analyserCanvasCtx.lineTo(x, y);
-    //             }
-    //         }
-    //         analyserCanvasCtx.strokeStyle = "rgba(59, 59, 59, 1)";
-    //         analyserCanvasCtx.fillStyle = "#666666ff";
-    //         analyserCanvasCtx.fill();
-    //         analyserCanvasCtx.stroke();
-
-    //         requestAnimationFrame(visualizeAnalyser);
-    //     };
-
-    //     visualizeAnalyser();
-    //     console.log("audioAnalyser.frequencyBinCount", audioAnalyser.frequencyBinCount);
-    // })();
-
-    const constraints: MediaStreamConstraints = {
-        audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-            channelCount: 1,
-            sampleRate: AUDIO_SAMPLE_RATE,
-        },
-    };
-
-    // const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-    // let recordedChunks = [] as Blob[];
-    // const mediaRecorder = new MediaRecorder(mediaStream, {
-    //   mimeType: "audio/webm",
-    // });
-    // mediaRecorder.ondataavailable = (event) => {
-    //   console.log("New recorded data of size:", event.data.size);
-    //   recordedChunks.push(event.data);
-    // };
-    // mediaRecorder.onstop = () => {
-    //   const blob = new Blob(recordedChunks, { type: "audio/webm" });
-    //   recordedChunks = [];
-    //   blob
-    //     .arrayBuffer()
-    //     .then(decodeAudioBuffer)
-    //     .then((buffer) => renderAudioSample(canvas, buffer))
-    //     .catch((reason) =>
-    //       console.error(
-    //         "Unable to get an array buffer from MediaRecorder:",
-    //         reason
-    //       )
-    //     );
-    // };
-
-    // const createProcessingChain = async (stream: MediaStream) => {
-    //   if (audioContext) return;
-
-    //   audioContext = new AudioContext(AUDIO_CONTEXT_OPTIONS);
-    //   const source = audioContext.createMediaStreamSource(mediaStream);
-    //   const gainNode = audioContext.createGain();
-    //   gainNode.gain.value = 1;
-
-    //   const merger = audioContext.createChannelMerger(2);
-    //   source.connect(merger, 0, 0);
-    //   source.connect(merger, 0, 1);
-
-    //   merger.connect(audioContext.destination);
-
-    //   await audioContext.resume();
-    // };
-
-    // const toggleRecord = async () => {
-    //   if (!state.recording) {
-    //     mediaRecorder.start();
-    //     state.recording = true;
-    //   } else {
-    //     mediaRecorder.stop();
-    //     state.recording = false;
-    //   }
-    //   recordButton.innerText = state.recording ? "Stop" : "Record";
-    // };
-    // recordButton.onclick = toggleRecord;
-
-
-    fetchAudioAsArrayBuffer("/voice.wav")
-        .then((buffer) => state.audioContext.decodeAudioData(buffer))
-        .then((audioBuffer) => {
-            state.rawAudioBuffer = audioBuffer;
-        });
-
-    state.audioContext.onstatechange = (event) => {
-        console.log("audio context state changed:", event);
-        // updatePlaybackState();
-    };
 
     let cursorOffsetX = 0; // set on mouse move event
     let scaleCursorOffsetX = 0; // set on mouse wheel event
     let sampleScale = 1; // sample zoom factor
-    // const selection = {};
 
     let renderedSampleCanvas: HTMLCanvasElement | null = null;
+
+    const updateAudioBuffer = (buffer: AudioBuffer) => {
+        state.rawAudioBuffer = buffer;
+        sampleScale = 1;
+        scaleCursorOffsetX = 0;
+        cursorOffsetX = 0;
+        renderedSampleCanvas = null;
+    }
 
     const renderSampleWaves = (): HTMLCanvasElement => {
         const localCanvas = document.createElement("canvas");
@@ -375,6 +248,123 @@ window.addEventListener("load", async () => {
     };
     requestAnimationFrame(renderCanvas);
 
+    // const audioAnalyser = state.audioContext.createAnalyser();
+    // audioAnalyser.fftSize = 32768;
+
+    // (() => {
+    //     const analyserCanvas = document.getElementById("frequency-analyzer")! as HTMLCanvasElement;
+    //     analyserCanvas.width = 500;
+    //     const analyserCanvasCtx = analyserCanvas.getContext("2d")!;
+
+    //     const analyserData = new Float32Array(audioAnalyser.frequencyBinCount);
+
+    //     function freqToX(freq: number, canvasWidth: number, sampleRate: number, fftSize: number) {
+    //         const nyquist = sampleRate / 2;
+    //         const minFreq = 20; // start at 20 Hz
+    //         const maxFreq = nyquist;
+
+    //         // logarithmic mapping
+    //         const minLog = Math.log10(minFreq);
+    //         const maxLog = Math.log10(maxFreq);
+    //         const freqLog = Math.log10(freq);
+
+    //         return ((freqLog - minLog) / (maxLog - minLog)) * canvasWidth;
+    //     }
+
+    //     const visualizeAnalyser = () => {
+    //         analyserCanvasCtx.clearRect(0, 0, analyserCanvas.width, analyserCanvas.height);
+
+    //         audioAnalyser.getFloatFrequencyData(analyserData);
+
+    //         analyserCanvasCtx.beginPath();
+    //         for (let i = 1; i < analyserData.length; i++) {
+    //             const freq = (i * state.audioContext.sampleRate) / audioAnalyser.fftSize;
+    //             if (freq < 20) continue; // skip subsonic
+
+    //             const x = freqToX(freq, analyserCanvas.width, state.audioContext.sampleRate, audioAnalyser.fftSize);
+    //             const magnitude = analyserData[i]; // in dB
+    //             const y = canvas.height - ((magnitude + 140) / 140) * canvas.height;
+
+    //             if (i === 1) {
+    //                 analyserCanvasCtx.moveTo(x, y);
+    //             } else {
+    //                 analyserCanvasCtx.lineTo(x, y);
+    //             }
+    //         }
+    //         analyserCanvasCtx.strokeStyle = "rgba(59, 59, 59, 1)";
+    //         analyserCanvasCtx.fillStyle = "#666666ff";
+    //         analyserCanvasCtx.fill();
+    //         analyserCanvasCtx.stroke();
+
+    //         requestAnimationFrame(visualizeAnalyser);
+    //     };
+
+    //     visualizeAnalyser();
+    //     console.log("audioAnalyser.frequencyBinCount", audioAnalyser.frequencyBinCount);
+    // })();
+    const createToggleRecord = () => {
+        const constraints: MediaStreamConstraints = {
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                channelCount: 1,
+                sampleRate: AUDIO_SAMPLE_RATE,
+            },
+        };
+        let mediaRecorder: MediaRecorder | null = null;
+        return async () => {
+            if (!state.recording) {
+                const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+                    .catch(console.error);
+                if (!mediaStream) return;
+
+                let recordedChunks = [] as Blob[];
+                mediaRecorder = new MediaRecorder(mediaStream, {
+                    mimeType: "audio/webm",
+                });
+                mediaRecorder.ondataavailable = (event) => {
+                    console.log("New recorded data of size:", event.data.size);
+                    recordedChunks.push(event.data);
+                };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: "audio/webm" });
+                    recordedChunks = [];
+                    blob
+                        .arrayBuffer()
+                        .then((buffer) => state.audioContext.decodeAudioData(buffer))
+                        .then((buffer) => updateAudioBuffer(buffer))
+                        .catch((reason) =>
+                            console.error(
+                                "Unable to get an array buffer from MediaRecorder:",
+                                reason
+                            )
+                        );
+                };
+                mediaRecorder.start();
+                state.recording = true;
+            } else {
+                if (mediaRecorder) {
+                    mediaRecorder.stop();
+                    mediaRecorder = null;
+                }
+                state.recording = false;
+            }
+
+            recordButton.innerText = state.recording ? "Stop" : "Record";
+        }
+    }
+    recordButton.onclick = createToggleRecord();
+
+    fetchAudioAsArrayBuffer("/voice.wav")
+        .then((buffer) => state.audioContext.decodeAudioData(buffer))
+        .then((audioBuffer) => updateAudioBuffer(audioBuffer));
+
+    state.audioContext.onstatechange = (event) => {
+        console.log("audio context state changed:", event);
+        // updatePlaybackState();
+    };
+
     const positionToSampleIndex = (mouseX: number): number => {
         if (!state.rawAudioBuffer) return 0;
         const normIndex = (mouseX - scaleCursorOffsetX) / (canvas.width * sampleScale);
@@ -385,6 +375,7 @@ window.addEventListener("load", async () => {
     const updatePlayTextButton = () => {
         playButton.innerText = (state.playback ? "Pause" : "Play") + ` (${KEYBOARD_BINDS.PLAY})`;
     };
+
     const pauseAudio = () => {
         if (!state.playback) return false;
         if (state.sourceNode) {
@@ -397,20 +388,6 @@ window.addEventListener("load", async () => {
         }
         state.playback = null;
         updatePlayTextButton();
-    };
-
-    const createProcessingChain = (source: AudioBufferSourceNode, destination: AudioDestinationNode) => {
-        const eqPlugin = new Equalizer7BandPlugin(state.audioContext);
-
-        const reverbPlugin = new ReverbPlugin(state.audioContext);
-        const irBuffer = impulseResponseBuffers[0];
-        reverbPlugin.setIRBuffer(irBuffer);
-        reverbPlugin.setMixValue(0.5);
-
-        source.connect(eqPlugin.input);
-        eqPlugin.output.connect(reverbPlugin.input);
-    
-        reverbPlugin.output.connect(destination);
     };
 
     const playAudio = () => {
@@ -432,7 +409,6 @@ window.addEventListener("load", async () => {
         state.sourceNode.loopEnd = Math.max(loopStart, loopEnd);
 
         graph.apply(state.sourceNode, state.audioContext.destination);
-        // createProcessingChain(state.sourceNode, state.audioContext.destination);
 
         state.sourceNode.onended = (event) => {
             if (state.playback) {

@@ -13,3 +13,4 @@ export const print10Numbers = () => {
         console.log("printing number %i", i, i + 1, test23242);
     }
 }
+
