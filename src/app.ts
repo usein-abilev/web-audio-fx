@@ -1,0 +1,539 @@
+import { initGraph, type GraphState } from "./graph"
+
+const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
+const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
+    sampleRate: AUDIO_SAMPLE_RATE,
+};
+
+type PlaybackState = {
+    startedTime: number;
+};
+
+type AudioPlugin = {
+    input: AudioNode;
+    output: AudioNode;
+};
+
+const state = {
+    recording: false,
+    playback: null as PlaybackState | null,
+
+    /**
+     * Last playback offset in seconds to resume from.
+     * Updates every time when user stops the audio playback to know where to resume playback
+     */
+    playbackOffsetSeconds: 0,
+
+    /**
+     * Contains data on currently selected area of the sample
+     */
+    selection: {
+        selected: false,
+        selecting: false,
+        /** start index of the current audio buffer */
+        start: 0,
+        /** end index of the current audio buffer */
+        end: 0,
+    },
+
+    /**
+     * Root audio context (only one instance), responsible for audio processing graph, etc.
+     */
+    audioContext: new AudioContext(AUDIO_CONTEXT_OPTIONS),
+
+    /**
+     * Current unprocessed sample audio buffer converted using AudioContext.decodeAudioData
+     */
+    rawAudioBuffer: null as AudioBuffer | null,
+    sourceNode: null as AudioBufferSourceNode | null,
+    // plugins: [] as AudioPlugin[],
+
+    graph: undefined as GraphState | undefined,
+};
+
+const KEYBOARD_BINDS = {
+    PLAY: "Space",
+    RECORD: "R",
+};
+
+const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBuffer> => {
+    try {
+        const response = await fetch(audioUrl);
+        const buffer = await response.arrayBuffer();
+        return buffer;
+    } catch (error) {
+        console.error("Error fetching audio array buffer:", error);
+        throw new Error("Error fetching audio data");
+    }
+};
+
+window.addEventListener("load", async () => {
+    const loadSampleButton = document.getElementById("load-sample")!;
+    const loopCheckbox = document.getElementById("loop-playback")!;
+    const recordButton = document.getElementById("record")!;
+    const playButton = document.getElementById("play")!;
+    const canvas = document.querySelector("canvas")!;
+    const canvasContext = canvas.getContext("2d")!;
+
+    const graph = initGraph({
+        onUpdate: () => console.log("Audio Graph Updated!"),
+    });
+    state.graph = graph;
+    // const audioAnalyser = state.audioContext.createAnalyser();
+    // audioAnalyser.fftSize = 32768;
+
+    // (() => {
+    //     const analyserCanvas = document.getElementById("frequency-analyzer")! as HTMLCanvasElement;
+    //     analyserCanvas.width = 500;
+    //     const analyserCanvasCtx = analyserCanvas.getContext("2d")!;
+
+    //     const analyserData = new Float32Array(audioAnalyser.frequencyBinCount);
+
+    //     function freqToX(freq: number, canvasWidth: number, sampleRate: number, fftSize: number) {
+    //         const nyquist = sampleRate / 2;
+    //         const minFreq = 20; // start at 20 Hz
+    //         const maxFreq = nyquist;
+
+    //         // logarithmic mapping
+    //         const minLog = Math.log10(minFreq);
+    //         const maxLog = Math.log10(maxFreq);
+    //         const freqLog = Math.log10(freq);
+
+    //         return ((freqLog - minLog) / (maxLog - minLog)) * canvasWidth;
+    //     }
+
+    //     const visualizeAnalyser = () => {
+    //         analyserCanvasCtx.clearRect(0, 0, analyserCanvas.width, analyserCanvas.height);
+
+    //         audioAnalyser.getFloatFrequencyData(analyserData);
+
+    //         analyserCanvasCtx.beginPath();
+    //         for (let i = 1; i < analyserData.length; i++) {
+    //             const freq = (i * state.audioContext.sampleRate) / audioAnalyser.fftSize;
+    //             if (freq < 20) continue; // skip subsonic
+
+    //             const x = freqToX(freq, analyserCanvas.width, state.audioContext.sampleRate, audioAnalyser.fftSize);
+    //             const magnitude = analyserData[i]; // in dB
+    //             const y = canvas.height - ((magnitude + 140) / 140) * canvas.height;
+
+    //             if (i === 1) {
+    //                 analyserCanvasCtx.moveTo(x, y);
+    //             } else {
+    //                 analyserCanvasCtx.lineTo(x, y);
+    //             }
+    //         }
+    //         analyserCanvasCtx.strokeStyle = "rgba(59, 59, 59, 1)";
+    //         analyserCanvasCtx.fillStyle = "#666666ff";
+    //         analyserCanvasCtx.fill();
+    //         analyserCanvasCtx.stroke();
+
+    //         requestAnimationFrame(visualizeAnalyser);
+    //     };
+
+    //     visualizeAnalyser();
+    //     console.log("audioAnalyser.frequencyBinCount", audioAnalyser.frequencyBinCount);
+    // })();
+
+    const constraints: MediaStreamConstraints = {
+        audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 1,
+            sampleRate: AUDIO_SAMPLE_RATE,
+        },
+    };
+
+    // const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // let recordedChunks = [] as Blob[];
+    // const mediaRecorder = new MediaRecorder(mediaStream, {
+    //   mimeType: "audio/webm",
+    // });
+    // mediaRecorder.ondataavailable = (event) => {
+    //   console.log("New recorded data of size:", event.data.size);
+    //   recordedChunks.push(event.data);
+    // };
+    // mediaRecorder.onstop = () => {
+    //   const blob = new Blob(recordedChunks, { type: "audio/webm" });
+    //   recordedChunks = [];
+    //   blob
+    //     .arrayBuffer()
+    //     .then(decodeAudioBuffer)
+    //     .then((buffer) => renderAudioSample(canvas, buffer))
+    //     .catch((reason) =>
+    //       console.error(
+    //         "Unable to get an array buffer from MediaRecorder:",
+    //         reason
+    //       )
+    //     );
+    // };
+
+    // const createProcessingChain = async (stream: MediaStream) => {
+    //   if (audioContext) return;
+
+    //   audioContext = new AudioContext(AUDIO_CONTEXT_OPTIONS);
+    //   const source = audioContext.createMediaStreamSource(mediaStream);
+    //   const gainNode = audioContext.createGain();
+    //   gainNode.gain.value = 1;
+
+    //   const merger = audioContext.createChannelMerger(2);
+    //   source.connect(merger, 0, 0);
+    //   source.connect(merger, 0, 1);
+
+    //   merger.connect(audioContext.destination);
+
+    //   await audioContext.resume();
+    // };
+
+    // const toggleRecord = async () => {
+    //   if (!state.recording) {
+    //     mediaRecorder.start();
+    //     state.recording = true;
+    //   } else {
+    //     mediaRecorder.stop();
+    //     state.recording = false;
+    //   }
+    //   recordButton.innerText = state.recording ? "Stop" : "Record";
+    // };
+    // recordButton.onclick = toggleRecord;
+
+    const impulseResponseBuffers = await Promise.all(
+        [
+            "/impulse_responses/Church Schellingwoude/Church Schellingwoude.wav",
+            "/impulse_responses/Claustrofobia v1.1/Dustbin 3 mono/Dustbin 3.C.wav",
+            "/impulse_responses/Factory Hall/Factory Hall/Factory Hall.wav",
+        ].map((path) => fetchAudioAsArrayBuffer(path).then((buffer) => state.audioContext.decodeAudioData(buffer)))
+    );
+
+    fetchAudioAsArrayBuffer("/voice.wav")
+        .then((buffer) => state.audioContext.decodeAudioData(buffer))
+        .then((audioBuffer) => {
+            state.rawAudioBuffer = audioBuffer;
+        });
+
+    state.audioContext.onstatechange = (event) => {
+        console.log("audio context state changed:", event);
+        // updatePlaybackState();
+    };
+
+    let cursorOffsetX = 0; // set on mouse move event
+    let scaleCursorOffsetX = 0; // set on mouse wheel event
+    let sampleScale = 1; // sample zoom factor
+    // const selection = {};
+
+    let renderedSampleCanvas: HTMLCanvasElement | null = null;
+
+    const renderSampleWaves = (): HTMLCanvasElement => {
+        const localCanvas = document.createElement("canvas");
+        localCanvas.width = canvas.width;
+        localCanvas.height = canvas.height;
+        const ctx = localCanvas.getContext("2d")!;
+
+        if (!state.rawAudioBuffer) return localCanvas;
+
+        const channelBuffers = [];
+        for (let i = 0; i < state.rawAudioBuffer.numberOfChannels; i++) {
+            channelBuffers.push(state.rawAudioBuffer.getChannelData(i));
+        }
+
+        const scaledWidth = canvas.width * sampleScale;
+
+        // draw sample wave heights
+        ctx.beginPath();
+        for (let i = 0; i < state.rawAudioBuffer.length; i++) {
+            const x = (i / state.rawAudioBuffer.length) * scaledWidth + scaleCursorOffsetX;
+            if (x > canvas.width || x < 0) continue;
+            ctx.moveTo(x, canvas.height / 2);
+            for (const channel of channelBuffers) {
+                ctx.lineTo(x, canvas.height / 2 + channel.at(i)! * (canvas.height / 2));
+            }
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "#a16c46ff";
+        ctx.stroke();
+
+        return localCanvas;
+    };
+
+    let prevTimestamp = 0;
+    const renderCanvas = (timestamp: number) => {
+        if (!prevTimestamp) {
+            prevTimestamp = timestamp;
+            return requestAnimationFrame(renderCanvas);
+        }
+
+        const deltaTime = (timestamp - prevTimestamp) / 1000;
+        prevTimestamp = timestamp;
+
+        if (!state.rawAudioBuffer) {
+            return requestAnimationFrame(renderCanvas);
+        }
+
+        const waveform = state.rawAudioBuffer!;
+
+        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+
+        // draw frame rate
+        canvasContext.font = "14px Monospace";
+        canvasContext.fillStyle = "rgba(46, 204, 6, 1)";
+        canvasContext.fillText("FPS: " + (1 / deltaTime).toFixed(0), 14, 24);
+
+        // caching already drawn canvas
+        renderedSampleCanvas ??= renderSampleWaves();
+        canvasContext.drawImage(renderedSampleCanvas, 0, 0);
+
+        const scaledWidth = canvas.width * sampleScale;
+
+        // draw cursor line
+        canvasContext.beginPath();
+        canvasContext.moveTo(cursorOffsetX, 0);
+        canvasContext.lineTo(cursorOffsetX, canvas.height);
+        canvasContext.closePath();
+        canvasContext.strokeStyle = "#6d6d6d44";
+        canvasContext.stroke();
+
+        // draw selection area
+        if (state.selection.selecting || state.selection.selected) {
+            const start = (state.selection.start / waveform.length) * scaledWidth + scaleCursorOffsetX;
+            const end = (state.selection.end / waveform.length) * scaledWidth + scaleCursorOffsetX;
+
+            canvasContext.fillStyle = "rgba(67, 140, 235, 0.5)";
+            canvasContext.fillRect(start, 0, end - start, canvas.height);
+
+            // draw start line
+            canvasContext.beginPath();
+            canvasContext.moveTo(start, 0);
+            canvasContext.lineTo(start, canvas.height);
+            canvasContext.closePath();
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
+            canvasContext.stroke();
+
+            // draw end line
+            canvasContext.beginPath();
+            canvasContext.moveTo(end, 0);
+            canvasContext.lineTo(end, canvas.height);
+            canvasContext.closePath();
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
+            canvasContext.stroke();
+        }
+
+        // draw playback cursor
+        if (state.playback && state.sourceNode) {
+            let elapsed = state.audioContext.currentTime - state.playback.startedTime;
+            if (state.sourceNode.loop) {
+                elapsed %= state.selection.selected
+                    ? state.sourceNode.loopStart - state.sourceNode.loopEnd
+                    : state.rawAudioBuffer!.duration;
+            }
+            elapsed += state.playbackOffsetSeconds;
+
+            const playbackOffsetX = (elapsed * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            canvasContext.beginPath();
+            canvasContext.moveTo(playbackOffsetX, 0);
+            canvasContext.lineTo(playbackOffsetX, canvas.height);
+            canvasContext.closePath();
+            canvasContext.strokeStyle = "#ffffffff";
+            canvasContext.lineWidth = 2;
+            canvasContext.stroke();
+        } else if (state.playbackOffsetSeconds > 0) {
+            const playbackOffsetX =
+                (state.playbackOffsetSeconds * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            canvasContext.beginPath();
+            canvasContext.moveTo(playbackOffsetX, 0);
+            canvasContext.lineTo(playbackOffsetX, canvas.height);
+            canvasContext.closePath();
+            canvasContext.strokeStyle = "#ffffffff";
+            canvasContext.lineWidth = 2;
+            canvasContext.stroke();
+        }
+
+        requestAnimationFrame(renderCanvas);
+    };
+    requestAnimationFrame(renderCanvas);
+
+    const positionToSampleIndex = (mouseX: number): number => {
+        if (!state.rawAudioBuffer) return 0;
+        const normIndex = (mouseX - scaleCursorOffsetX) / (canvas.width * sampleScale);
+        const idx = normIndex * state.rawAudioBuffer.length;
+        return Math.round(idx);
+    };
+
+    const updatePlayTextButton = () => {
+        playButton.innerText = (state.playback ? "Pause" : "Play") + ` (${KEYBOARD_BINDS.PLAY})`;
+    };
+    const pauseAudio = () => {
+        if (!state.playback) return false;
+        if (state.sourceNode) {
+            state.playbackOffsetSeconds += state.audioContext.currentTime - state.playback.startedTime;
+            state.sourceNode.onended = null;
+            state.sourceNode.stop();
+            state.sourceNode.disconnect();
+            state.sourceNode = null;
+            console.log("Played seconds:", state.playbackOffsetSeconds, state.rawAudioBuffer!.duration);
+        }
+        state.playback = null;
+        updatePlayTextButton();
+    };
+
+    const createProcessingChain = (source: AudioBufferSourceNode, destination: AudioDestinationNode) => {
+        // convolver plugin
+        const convolverMixValue = 0.5; // 100% of convolver effect
+        const irBuffer = impulseResponseBuffers[0];
+        const convolverDry = state.audioContext.createGain();
+        convolverDry.gain.value = 1 - convolverMixValue;
+        const convolverWet = state.audioContext.createGain();
+        convolverWet.gain.value = convolverMixValue;
+        const convolver = state.audioContext.createConvolver();
+        convolver.buffer = irBuffer;
+
+        // master
+        const masterGain = state.audioContext.createGain();
+        masterGain.gain.value = 1;
+
+        const filterNode = state.audioContext.createBiquadFilter();
+        filterNode.type = "notch";
+        filterNode.frequency.value = 200;
+        filterNode.gain.value = 52;
+        filterNode.Q.value = 100;
+
+        source.connect(convolverDry).connect(masterGain);
+        source.connect(convolver).connect(convolverWet).connect(masterGain);
+
+        // source;
+
+        masterGain.connect(filterNode).connect(audioAnalyser).connect(destination);
+    };
+
+    const playAudio = () => {
+        if (state.playback) return;
+        if (!state.rawAudioBuffer) {
+            console.log("Cannot play audio without audio buffer", state);
+            return;
+        }
+
+        const { length: bufferSize, duration: bufferDuration } = state.rawAudioBuffer!;
+        const loopStart = (state.selection.start / bufferSize) * bufferDuration;
+        const loopEnd = (state.selection.end / bufferSize) * bufferDuration;
+
+        state.sourceNode = state.audioContext.createBufferSource();
+        state.sourceNode.buffer = state.rawAudioBuffer;
+        state.sourceNode.loop = (loopCheckbox as HTMLInputElement).checked;
+        state.sourceNode.playbackRate.value = 1;
+        state.sourceNode.loopStart = Math.min(loopStart, loopEnd);
+        state.sourceNode.loopEnd = Math.max(loopStart, loopEnd);
+
+        createProcessingChain(state.sourceNode, state.audioContext.destination);
+
+        state.sourceNode.onended = (event) => {
+            if (state.playback) {
+                console.log("Playback ended event", { event, state });
+                state.playback = null;
+                state.playbackOffsetSeconds = state.selection.selected ? Math.min(loopStart, loopEnd) : 0;
+                state.sourceNode?.stop();
+                state.sourceNode?.disconnect();
+                state.sourceNode = null;
+                updatePlayTextButton();
+            }
+        };
+
+        // BUG: Incorrect pause offset handling when selected=true
+        // Check how 'playbackOffsetSeconds' calculated inside the pauseAudio logic
+        if (state.selection.selected) {
+            if (state.sourceNode.loop) {
+                state.sourceNode.start(0, state.sourceNode.loopStart);
+            } else {
+                state.sourceNode.start(
+                    0,
+                    state.sourceNode.loopStart,
+                    state.sourceNode.loopEnd - state.sourceNode.loopStart
+                );
+            }
+        } else {
+            state.sourceNode.start(0, state.playbackOffsetSeconds);
+        }
+
+        state.playback = {
+            startedTime: state.audioContext.currentTime,
+        };
+        updatePlayTextButton();
+    };
+
+    const togglePlayback = () => {
+        if (!state.playback) {
+            playAudio();
+        } else {
+            pauseAudio();
+        }
+        playButton.innerText = (state.playback ? "Pause" : "Play") + ` (${KEYBOARD_BINDS.PLAY})`;
+    };
+
+    playButton.addEventListener("click", togglePlayback);
+
+    window.addEventListener("keydown", (event) => {
+        event.preventDefault();
+        if (event.code === KEYBOARD_BINDS.PLAY) {
+            return togglePlayback();
+        }
+    });
+
+    canvas.addEventListener("mousemove", (event) => {
+        cursorOffsetX = event.offsetX;
+        if (state.rawAudioBuffer && state.selection.selecting) {
+            state.selection.end = positionToSampleIndex(event.offsetX);
+        }
+    });
+    canvas.addEventListener("mousedown", (event) => {
+        if (state.rawAudioBuffer) {
+            state.selection.selecting = true;
+            const start = positionToSampleIndex(event.offsetX);
+            state.selection.start = start;
+            state.selection.end = start;
+        }
+    });
+    window.addEventListener("mouseup", (event) => {
+        const isCanvas = event.target && event.target instanceof HTMLCanvasElement;
+        const mouseX = isCanvas ? event.offsetX : cursorOffsetX;
+        if (state.rawAudioBuffer && state.selection.selecting) {
+            state.selection.end = positionToSampleIndex(mouseX);
+            state.selection.selecting = false;
+            state.selection.selected = state.selection.start !== state.selection.end;
+            console.log("Selection event on mouseup:", state.selection);
+
+            const mousePlaybackSeconds =
+                (Math.min(state.selection.start, state.selection.end) / state.rawAudioBuffer.length) *
+                state.rawAudioBuffer.duration;
+            if (state.playback) {
+                pauseAudio();
+                state.playbackOffsetSeconds = mousePlaybackSeconds;
+                playAudio();
+            } else {
+                state.playbackOffsetSeconds = mousePlaybackSeconds;
+            }
+        }
+    });
+    canvas.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        if (!state.rawAudioBuffer) return false;
+        const scaler = event.ctrlKey ? 0.5 : 0.1;
+        const zoomFactor = 1 - Math.sign(event.deltaY) * scaler;
+        const newScale = Math.max(1, sampleScale * zoomFactor);
+
+        const maxOffsetX = canvas.width * newScale - canvas.width;
+        const normIndex = (cursorOffsetX - scaleCursorOffsetX) / (canvas.width * sampleScale);
+        scaleCursorOffsetX = Math.max(-maxOffsetX, Math.min(0, cursorOffsetX - normIndex * canvas.width * newScale));
+        renderedSampleCanvas = null;
+
+        sampleScale = newScale;
+    });
+
+    const resizeCanvas = () => {
+        canvas.width = window.innerWidth - 20;
+        canvas.height = 250;
+        renderedSampleCanvas = null;
+    };
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+});
