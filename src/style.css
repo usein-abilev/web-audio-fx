@@ -66,6 +66,27 @@ hr {
     opacity: 0.2;
 }
 
+.block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.block-header .graph-controls {
+    padding: 20px 24px;
+}
+.graph-controls #add-plugin-select {
+    min-width: 250px;
+    padding: 5px;
+    border: none;
+    border-radius: 3px;
+    color: var(--primary-button-text-color);
+    outline: none;
+}
+#add-plugin-select #select-placeholder {
+    display: none;
+}
+
 .plugin-container {
     display: flex;
     gap: 20px;
@@ -146,6 +167,7 @@ input[type="range"]:active::-moz-range-thumb {
     width: 1px;
     height: 1px;
 }
+
 
 /* a {
 font-weight: 500;

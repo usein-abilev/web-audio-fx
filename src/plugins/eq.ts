@@ -2,6 +2,11 @@ import { createPluginUI } from "../utils";
 import { AudioPlugin } from "./plugin";
 
 export class Equalizer7BandPlugin extends AudioPlugin {
+    public static readonly NAME = "Equalizer (7 Band)";
+    public get name() {
+        return Equalizer7BandPlugin.NAME;
+    }
+
     public bands: BiquadFilterNode[];
 
     constructor(audioContext: AudioContext) {
@@ -18,31 +23,22 @@ export class Equalizer7BandPlugin extends AudioPlugin {
         });
         this.bands.reduce((a, b) => (a.connect(b), b));
 
-        this.input.connect(this.dryNode);
         this.input.connect(this.bands[0]);
         this.bands.at(-1)?.connect(this.wetNode);
-
-        this.dryNode.connect(this.output);
-        this.wetNode.connect(this.output);
     }
 
-    connect(src: AudioNode) {}
-
-    disconnect() {}
-
     render(parent: HTMLElement) {
-        const setBandValue = (band: BiquadFilterNode | undefined, gainValue: number | string) => {
-            if (band) {
-                band.gain.value = +gainValue;
-            }
-        };
-
+        super.render(parent);
         const options = { min: "-40", max: "40", step: "1", defaultValue: "0" };
         const uiBuilder = createPluginUI();
+        const onGainChange = (band: BiquadFilterNode) => (ev: any) => {
+            const int = +ev.target.value;
+            band.gain.value = int;
+        };
         const children = this.bands.map((band) => {
             return uiBuilder.createSlider(
                 `${band.frequency.value}Hz`,
-                (ev: any) => setBandValue(band, ev.target.value),
+                onGainChange(band),
                 { ...options, defaultValue: String(band?.gain.value || 0) }
             );
         });

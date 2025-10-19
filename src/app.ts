@@ -1,4 +1,6 @@
 import { initGraph, type GraphState } from "./graph"
+import { Equalizer7BandPlugin } from "./plugins/eq";
+import { ReverbPlugin } from "./plugins/reverb";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
@@ -7,11 +9,6 @@ const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
 
 type PlaybackState = {
     startedTime: number;
-};
-
-type AudioPlugin = {
-    input: AudioNode;
-    output: AudioNode;
 };
 
 const state = {
@@ -46,15 +43,25 @@ const state = {
      */
     rawAudioBuffer: null as AudioBuffer | null,
     sourceNode: null as AudioBufferSourceNode | null,
-    // plugins: [] as AudioPlugin[],
-
-    graph: undefined as GraphState | undefined,
 };
 
 const KEYBOARD_BINDS = {
     PLAY: "Space",
     RECORD: "R",
 };
+
+const PLUGINS = [
+    {
+        id: "reverb",
+        name: "Reverb",
+        getInstance: (actx: AudioContext) => new ReverbPlugin(actx),
+    },
+    {
+        id: "equalizer",
+        name: "EQ (7 Band)",
+        getInstance: (actx: AudioContext) => new Equalizer7BandPlugin(actx),
+    },
+];
 
 const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBuffer> => {
     try {
@@ -72,13 +79,34 @@ window.addEventListener("load", async () => {
     const loopCheckbox = document.getElementById("loop-playback")!;
     const recordButton = document.getElementById("record")!;
     const playButton = document.getElementById("play")!;
+    const pluginSelector = document.getElementById("add-plugin-select")! as HTMLSelectElement;
+
     const canvas = document.querySelector("canvas")!;
     const canvasContext = canvas.getContext("2d")!;
 
     const graph = initGraph({
-        onUpdate: () => console.log("Audio Graph Updated!"),
+        audioContext: state.audioContext,
+        onUpdate: (graph) => console.log("Audio Graph Updated!", graph),
     });
-    state.graph = graph;
+
+    // Initialize Plugin List Selector
+    (() => {
+        for (const plugin of PLUGINS) {
+            const option = document.createElement("option");
+            option.value = plugin.id; 
+            option.innerText = plugin.name;
+            pluginSelector.add(option);
+        }
+
+        pluginSelector.addEventListener("change", (ev: any) => {
+            const plugin = PLUGINS.find((p) => p.id === ev.target?.value);
+            if (!plugin) return;
+            console.log("Adding plugin:", plugin);
+            graph.addPlugin(plugin.getInstance(state.audioContext));
+            pluginSelector.value = "";
+        });
+    })();
+
     // const audioAnalyser = state.audioContext.createAnalyser();
     // audioAnalyser.fftSize = 32768;
 
@@ -198,13 +226,6 @@ window.addEventListener("load", async () => {
     // };
     // recordButton.onclick = toggleRecord;
 
-    const impulseResponseBuffers = await Promise.all(
-        [
-            "/impulse_responses/Church Schellingwoude/Church Schellingwoude.wav",
-            "/impulse_responses/Claustrofobia v1.1/Dustbin 3 mono/Dustbin 3.C.wav",
-            "/impulse_responses/Factory Hall/Factory Hall/Factory Hall.wav",
-        ].map((path) => fetchAudioAsArrayBuffer(path).then((buffer) => state.audioContext.decodeAudioData(buffer)))
-    );
 
     fetchAudioAsArrayBuffer("/voice.wav")
         .then((buffer) => state.audioContext.decodeAudioData(buffer))
@@ -379,32 +400,17 @@ window.addEventListener("load", async () => {
     };
 
     const createProcessingChain = (source: AudioBufferSourceNode, destination: AudioDestinationNode) => {
-        // convolver plugin
-        const convolverMixValue = 0.5; // 100% of convolver effect
+        const eqPlugin = new Equalizer7BandPlugin(state.audioContext);
+
+        const reverbPlugin = new ReverbPlugin(state.audioContext);
         const irBuffer = impulseResponseBuffers[0];
-        const convolverDry = state.audioContext.createGain();
-        convolverDry.gain.value = 1 - convolverMixValue;
-        const convolverWet = state.audioContext.createGain();
-        convolverWet.gain.value = convolverMixValue;
-        const convolver = state.audioContext.createConvolver();
-        convolver.buffer = irBuffer;
+        reverbPlugin.setIRBuffer(irBuffer);
+        reverbPlugin.setMixValue(0.5);
 
-        // master
-        const masterGain = state.audioContext.createGain();
-        masterGain.gain.value = 1;
-
-        const filterNode = state.audioContext.createBiquadFilter();
-        filterNode.type = "notch";
-        filterNode.frequency.value = 200;
-        filterNode.gain.value = 52;
-        filterNode.Q.value = 100;
-
-        source.connect(convolverDry).connect(masterGain);
-        source.connect(convolver).connect(convolverWet).connect(masterGain);
-
-        // source;
-
-        masterGain.connect(filterNode).connect(audioAnalyser).connect(destination);
+        source.connect(eqPlugin.input);
+        eqPlugin.output.connect(reverbPlugin.input);
+    
+        reverbPlugin.output.connect(destination);
     };
 
     const playAudio = () => {
@@ -425,7 +431,8 @@ window.addEventListener("load", async () => {
         state.sourceNode.loopStart = Math.min(loopStart, loopEnd);
         state.sourceNode.loopEnd = Math.max(loopStart, loopEnd);
 
-        createProcessingChain(state.sourceNode, state.audioContext.destination);
+        graph.apply(state.sourceNode, state.audioContext.destination);
+        // createProcessingChain(state.sourceNode, state.audioContext.destination);
 
         state.sourceNode.onended = (event) => {
             if (state.playback) {
@@ -473,7 +480,7 @@ window.addEventListener("load", async () => {
     playButton.addEventListener("click", togglePlayback);
 
     window.addEventListener("keydown", (event) => {
-        event.preventDefault();
+        // event.preventDefault();
         if (event.code === KEYBOARD_BINDS.PLAY) {
             return togglePlayback();
         }

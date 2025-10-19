@@ -25,49 +25,17 @@
         <!-- </div> -->
 
         <div class="audio-graph">
-            <h2>Audio Processing Graph</h2>
+            <div class="block-header">
+                <h2>Audio Processing Graph</h2>
+                <div class="graph-controls">
+                    <select id="add-plugin-select">
+                        <option id="select-placeholder" value="" selected disabled>Add plugin</option>
+                    </select>
+                </div>
+            </div>
             <canvas id="graph">The canvas is not supported in your browser</canvas>
         </div>
         <div id="audio-plugin">
-            <div class="plugin-container">
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>59 Hz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>149 Hz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>399 Hz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>0 kHz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>1.4 kHz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="12" value="0" step="1">
-                    <label>5 kHz</label>
-                </div>
-                <div class="band">
-                    <input type="range" min="-13" max="13" value="-8" step="1">
-                    <label>14 kHz</label>
-                </div>
-            </div>
-            <!-- <div class="todo-list" style="width: 250px"> -->
-            <!--     <h2>TODO</h2> -->
-            <!--     <ul> -->
-            <!--         <li><strike>Implement visual cursor</strike></li> -->
-            <!--         <li><strike>Add magnifier which scales the sample by mouse scroll</strike></li> -->
-            <!--         <li><strike>Optimize rendering</strike></li> -->
-            <!--         <li>Implement visual bars</li> -->
-            <!--     </ul> -->
-            <!-- </div> -->
         </div>
 
     <script type="module" src="/src/app.ts"></script>
