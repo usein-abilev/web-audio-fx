@@ -28,20 +28,22 @@ export class Equalizer7BandPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        const options = { min: -40, max: 40, step: 1, defaultValue: 0 };
+        const options = { min: -12, max: 12, step: 0.1, defaultValue: 0 };
         const builder = createPluginUI();
 
         const children = this.bands.map((band) => {
             return builder.slider(
                 `${band.frequency.value}Hz`,
-                (value) => band.gain.setValueAtTime(value, this.audioContext.currentTime + 0.05),
-                { ...options, defaultValue: band.gain.value || 0 }
+                (value) => band.gain.setValueAtTime(value, this.audioContext.currentTime + 0.01),
+                { ...options, formatter: (v) => `${v.toFixed(1)} dB`, value: band.gain.value}
             );
         });
 
         const container = builder.createContainer(
             ...children,
             this.mixSliderElement,
+            this.inputSlider,
+            this.outputSlider,
         );
 
         parent.innerHTML = "";
