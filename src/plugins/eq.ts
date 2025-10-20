@@ -28,28 +28,23 @@ export class Equalizer7BandPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        super.render(parent);
-        const options = { min: "-40", max: "40", step: "1", defaultValue: "0" };
-        const uiBuilder = createPluginUI();
-        const onGainChange = (band: BiquadFilterNode) => (ev: any) => {
-            const int = +ev.target.value;
-            band.gain.value = int;
-        };
+        const options = { min: -40, max: 40, step: 1, defaultValue: 0 };
+        const builder = createPluginUI();
+
         const children = this.bands.map((band) => {
-            return uiBuilder.createSlider(
+            return builder.slider(
                 `${band.frequency.value}Hz`,
-                onGainChange(band),
-                { ...options, defaultValue: String(band?.gain.value || 0) }
+                (value) => band.gain.setValueAtTime(value, this.audioContext.currentTime + 0.05),
+                { ...options, defaultValue: band.gain.value || 0 }
             );
         });
-        const container = uiBuilder.createContainer(
+
+        const container = builder.createContainer(
             ...children,
-            uiBuilder.createSlider("Mix", (ev: any) => this.setMixValue(+ev.target.value / 100), {
-                min: "0",
-                max: "100",
-                defaultValue: String(this.getMixValue() * 100),
-            })
+            this.mixSliderElement,
         );
+
+        parent.innerHTML = "";
         parent.appendChild(container);
     }
 }

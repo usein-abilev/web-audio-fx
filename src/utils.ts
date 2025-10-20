@@ -34,13 +34,6 @@ export const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBu
 };
 
 export const createPluginUI = () => {
-    const appendChild = (parent: HTMLElement, child: any) => {
-        if (child instanceof HTMLElement) {
-            parent.appendChild(child);
-        } else {
-            parent.innerText = String(child)
-        }
-    }
     return {
         createContainer(...items: HTMLElement[]) {
             const pluginContainer = document.createElement("div");
@@ -48,56 +41,99 @@ export const createPluginUI = () => {
             items.forEach((item) => pluginContainer.appendChild(item));
             return pluginContainer;
         },
-        createSlider(
+        slider(
             content: HTMLElement | string,
-            onChange: (event: Event) => any,
-            params: Partial<Record<"min" | "max" | "defaultValue" | "step", string>> = { defaultValue: "0" }
+            onChange: (value: number, event: Event) => any,
+            params: {
+                min?: number;
+                max?: number;
+                step?: number;
+                defaultValue?: number; 
+            } = { defaultValue: 0 }
         ) {
             const band = document.createElement("div");
-            band.className = "band";
-
             const input = document.createElement("input");
-            input.type = "range";
-            for (const key in params) {
-                // @ts-ignore
-                input[key] = params[key] as any;
-            }
-            input.onchange = onChange;
-            band.ondblclick = (ev) => {
-                // reset value
-                input.value = params.defaultValue || "0";
-                input.onchange!(ev);
-            };
             const label = document.createElement("label");
-            appendChild(label, content);
+            const displayValueEl = document.createElement("label");
 
-            band.appendChild(input);
-            band.appendChild(label);
+            displayValueEl.innerText = (params.defaultValue || 0).toFixed(1)
+            band.className = "band";
+            input.type = "range";
+
+            label.append(content);
+            band.append(input, displayValueEl, label);
+
+            Object.assign(input, params);
+            // Object.entries(params).map(([key, value]) => Object.defineProperty(input, key, { value }));
+
+            input.addEventListener("input", (ev: Event) => {
+                const value = +(ev.target as HTMLInputElement).value;
+                onChange(value, ev);
+                displayValueEl.innerText = `${value}`;
+            });
+
+            band.addEventListener("dblclick", () => {
+                input.value = String(params.defaultValue ?? 0);
+                input.dispatchEvent(new Event("input"));
+            });
 
             return band;
         },
-        createSelect(
+        select(
             content: HTMLElement | string,
-            onChange: (event: Event, selected: string) => any,
-            options: { value: string; displayText: string; }[]
+            onChange: (selected: string, event: any) => any,
+            params: {
+                options: { value: string; displayText: string; }[],
+                selectedValue?: string;
+            }
         ) {
-            const label = document.createElement("label");
-            appendChild(label, content);
+            const selectBlock = document.createElement("div");
+            selectBlock.className = "select-block";
 
+            const label = document.createElement("span");
             const select = document.createElement("select");
-            const childs = options.map(({ value, displayText }) => {
+
+            select.name = "plugin-select";
+            select.value = params.selectedValue || "";
+
+            const childs = params.options.map(({ value, displayText }) => {
                 const option = document.createElement("option");
                 option.value = value;
                 option.innerText = displayText;
+                if (params.selectedValue === value) option.setAttribute("selected", "true");
                 return option;
             });
             select.addEventListener("change", (ev: any) => {
-                onChange(ev, ev.target.value);
+                onChange(ev.target.value, ev);
             });
-            childs.forEach((child) => select.appendChild(child));
-            label.appendChild(select);
+
+            label.append(content);
+            select.append(...childs);
+            selectBlock.append(label, select);
+
+            return selectBlock;
+        },
+        checkbox(
+            content: HTMLElement | string,
+            onChange: (checked: boolean, event: Event) => any,
+            params: { defaultValue?: boolean }
+        ) {
+// <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1" aria-disabled="true"></label>
+            const label = document.createElement("label");
+            const input = document.createElement("input");
+            input.type = "checkbox";
+
+            input.checked = !!params.defaultValue;
+            input.addEventListener("change", (ev: Event) => {
+                onChange((ev.target as HTMLInputElement).checked, ev);
+            });
+
+            label.append(
+                content,
+                input,
+            );
 
             return label;
-        }
+        },
     };
 };

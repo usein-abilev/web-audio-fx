@@ -23,6 +23,7 @@ export class ReverbPlugin extends AudioPlugin {
     }
 
     private convolver: ConvolverNode;
+    private selectedIRPath: string = ""; 
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
@@ -35,29 +36,29 @@ export class ReverbPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        super.render(parent);
         const builder = createPluginUI();
         const typeOptions = IMPULSE_RESPONSES.map((ir) => ({
             value: ir.path,
             displayText: ir.title,
         }));
-        const onTypeChange = (_: any, path: string) => {
-           console.log("(reverb): Loading IR from path:", path);
+        const onTypeChange = (path: string) => {
+            if (this.selectedIRPath === path) return;
+            this.selectedIRPath = path;
+            console.log("(reverb): Loading IR from path:", path);
             fetchAudioAsArrayBuffer(path)
                 .then((buffer) => this.audioContext.decodeAudioData(buffer))
                 .then((buffer) => this.setIRBuffer(buffer))
                 .catch((error) => console.error("Error fetching IR audio buffer:", error));
         };
-        onTypeChange(null, IMPULSE_RESPONSES[0].path);
-
+        if (!this.selectedIRPath) {
+            onTypeChange(IMPULSE_RESPONSES[0].path);
+        }
         const container = builder.createContainer(
-            builder.createSelect("Type", onTypeChange, typeOptions),
-            builder.createSlider("Mix", (ev: any) => this.setMixValue(+ev.target.value / 100), {
-                min: "0",
-                max: "100",
-                defaultValue: String(this.getMixValue() * 100),
-            })
+            builder.select("Type", onTypeChange, { options: typeOptions, selectedValue: this.selectedIRPath }),
+            this.mixSliderElement,
         );
+
+        parent.innerHTML = "";
         parent.appendChild(container);
     }
 }
