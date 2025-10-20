@@ -1,14 +1,16 @@
-export class AudioPlugin {
-    public input: GainNode;
-    public output: GainNode;
+import AudioGraphNode from "../nodes/node";
+import { createPluginUI } from "../utils";
 
+export class AudioPlugin extends AudioGraphNode {
     protected dryNode: GainNode;
     protected wetNode: GainNode;
     protected mixValue: number = 1;
 
-    constructor(protected audioContext: AudioContext) {
-        this.input = this.audioContext.createGain();
-        this.output = this.audioContext.createGain();
+    protected mixSliderElement: HTMLElement;
+
+    constructor(audioContext: AudioContext) {
+        super(audioContext);
+
         this.dryNode = this.audioContext.createGain();
         this.wetNode = this.audioContext.createGain();
         this.setMixValue(1);
@@ -16,8 +18,13 @@ export class AudioPlugin {
         this.input.connect(this.dryNode);
         this.wetNode.connect(this.output);
         this.dryNode.connect(this.output);
-    }
 
+        this.mixSliderElement = createPluginUI().slider("Mix", (value) => this.setMixValue(value / 100), {
+            min: 0,
+            max: 100,
+            defaultValue: this.getMixValue() * 100,
+        });
+    }
 
     getMixValue() {
         return this.mixValue;

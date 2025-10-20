@@ -402,8 +402,8 @@ window.addEventListener("load", async () => {
     playButton.addEventListener("click", togglePlayback);
 
     window.addEventListener("keydown", (event) => {
-        // event.preventDefault();
         if (event.code === KEYBOARD_BINDS.PLAY) {
+            event.preventDefault();
             return togglePlayback();
         }
     });
@@ -459,8 +459,8 @@ window.addEventListener("load", async () => {
     });
 
     const resizeCanvas = () => {
-        canvas.width = window.innerWidth - 20;
-        canvas.height = 250;
+        canvas.width = document.body.clientWidth - 20;
+        canvas.height = 200;
         renderedSampleCanvas = null;
     };
     window.addEventListener("resize", resizeCanvas);

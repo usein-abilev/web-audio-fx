@@ -28,27 +28,23 @@ export class DelayPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        super.render(parent);
-        const uiBuilder = createPluginUI();
-        const container = uiBuilder.createContainer(
-            uiBuilder.createSlider("Feedback", (ev: any) => (this.feedback.gain.value = +ev.target.value), {
-                min: "0",
-                max: String(this.maxDelayTime),
-                defaultValue: "0.2",
-                step: "0.1",
+        const builder = createPluginUI();
+        const container = builder.createContainer(
+            builder.slider("Feedback", (value) => (this.feedback.gain.value = value), {
+                min: 0,
+                max: this.maxDelayTime,
+                defaultValue: this.feedback.gain.value,
+                step: 0.1,
             }),
-            uiBuilder.createSlider("Delay", (ev: any) => (this.delay.delayTime.value = +ev.target.value), {
-                min: "0",
-                max: String(this.maxDelayTime),
-                defaultValue: "0.5",
-                step: "0.1",
+            builder.slider("Delay", (value) => (this.delay.delayTime.value = value), {
+                min: 0,
+                max: this.maxDelayTime,
+                defaultValue: this.delay.delayTime.value,
+                step: 0.1,
             }),
-            uiBuilder.createSlider("Mix", (ev: any) => this.setMixValue(+ev.target.value / 100), {
-                min: "0",
-                max: "100",
-                defaultValue: String(this.getMixValue() * 100),
-            })
+            this.mixSliderElement,
         );
+        parent.innerHTML = "";
         parent.appendChild(container);
     }
 }

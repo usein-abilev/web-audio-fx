@@ -1,5 +1,9 @@
 import { distance2D, randomId } from "./utils"
 import { AudioPlugin } from "./plugins/plugin"
+import type AudioGraphNode from "./nodes/node";
+import { InputGraphNode } from "./nodes/input.node";
+import { OutputGraphNode } from "./nodes/output.node";
+import { createContextMenu } from "./contextmenu";
 
 export enum GraphNodeType {
     Input = "input",
@@ -11,7 +15,7 @@ export type GraphNode = {
     id: string;
     type: string;
     position: { x: number; y: number };
-    instance?: AudioPlugin;
+    instance: AudioGraphNode;
     connections: Record<string, number>;
 };
 
@@ -43,10 +47,25 @@ type InitGraphConfig = {
 export const initGraph = (config: InitGraphConfig) => {
     const graph: GraphState = {
         nodes: [
-            { type: GraphNodeType.Input, id: randomId(), position: { x: 0, y: 0 }, connections: {} },
-            { type: GraphNodeType.Output, id: randomId(), position: { x: 0, y: 0 }, connections: {} },
+            {
+                type: GraphNodeType.Input,
+                id: randomId(),
+                instance: new InputGraphNode(config.audioContext),
+                position: { x: 0, y: 0 },
+                connections: {}
+            },
+            {
+                type: GraphNodeType.Output,
+                id: randomId(),
+                instance: new OutputGraphNode(config.audioContext),
+                position: { x: 0, y: 0 },
+                connections: {}
+            },
         ],
     };
+    const [inputGraphNode, outputGraphNode] = graph.nodes;
+    inputGraphNode.connections[outputGraphNode.id] = 1;
+
     const hoveredNode = {
         isConnector: false,
         isInput: false,
@@ -56,6 +75,51 @@ export const initGraph = (config: InitGraphConfig) => {
     const pluginWindowEl = document.getElementById("audio-plugin")!;
     const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
     const graphCtx = graphCanvas!.getContext("2d")!;
+
+    createContextMenu(graphCanvas,
+        () => !!graph.selectedNode,
+        [
+            {
+                key: "delete",
+                displayText: "Delete node",
+                canShow: () => graph.selectedNode?.type === GraphNodeType.Plugin,
+                handler: () => {
+                    if (!graph.selectedNode) return;
+                    if (graph.selectedNode.type !== GraphNodeType.Plugin) return;
+                    console.log("Deleting:", graph.selectedNode, graph.nodes);
+                    const map = new Map<string, GraphNode>();
+                    let deleteIdx = -1;
+                    graph.nodes.forEach((node, index) => {
+                        map.set(node.id, node);
+                        if (node.id === graph.selectedNode!.id) {
+                            deleteIdx = index;
+                            return;
+                        }
+                        if (graph.selectedNode!.id in node.connections) {
+                            try {
+                                node.instance.output.disconnect(graph.selectedNode!.instance.input);
+                            } catch (error) {
+                                // ignore error because the nodes are not connected yet
+                            }
+                            delete node.connections[graph.selectedNode!.id];
+                        }
+                    });
+                    for (const nodeId in graph.selectedNode.connections) {
+                        const nextNode = map.get(nodeId);
+                        if (!nextNode) continue;
+                        try {
+                            graph.selectedNode.instance.output.disconnect(nextNode.instance.input);
+                        } catch (error) {
+                            // ignore error, not connected yet
+                        }
+                    }
+                    delete graph.selectedNode;
+                    graph.nodes.splice(deleteIdx, 1);
+                    pluginWindowEl.innerHTML = "";
+                },
+            }
+        ]
+    );
 
     const renderGraph = () => {
         graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
@@ -105,7 +169,7 @@ export const initGraph = (config: InitGraphConfig) => {
             // draw node label
             graphCtx.fillStyle = "#FFFFFF";
             graphCtx.font = "14px Arial";
-            const nodeName = (node.instance?.name || node.type.toUpperCase());
+            const nodeName = node.instance.name
             graphCtx.fillText(nodeName, node.position.x + 10, node.position.y + 25);
 
             // draw connections
@@ -191,6 +255,10 @@ export const initGraph = (config: InitGraphConfig) => {
         return null;
     }
 
+    const displayGraphNodeUI = (node: GraphNode) => {
+        node.instance.render(pluginWindowEl);
+    };
+
     const setCursorType = (type: "default" | "grabbing" | "pointer") => {
         graphCanvas.style.cursor = type;
     };
@@ -207,20 +275,26 @@ export const initGraph = (config: InitGraphConfig) => {
                 mouseY: offsetY,
             };
             setCursorType("grabbing");
+            return;
         }
 
         const insideNode = inGraphNode(offsetX, offsetY);
         if (insideNode) {
             setCursorType("grabbing");
-            if (graph.selectedNode?.id !== insideNode.id && insideNode.type === GraphNodeType.Plugin) {
-                insideNode.instance!.render(pluginWindowEl);
+            if (graph.selectedNode?.id !== insideNode.id) {
+                displayGraphNodeUI(insideNode);
             }
             graph.selectedNode = insideNode;
             graph.draggingAnchor = {
                 x: offsetX - insideNode.position.x,
                 y: offsetY - insideNode.position.y,
             };
+            return;
         }
+
+        delete graph.selectedNode;
+        // TODO: This is the bad way to implement this, consider using 'hide()' and 'show()' functions
+        pluginWindowEl.innerHTML = "";
     });
 
     graphCanvas.addEventListener("mousemove", (ev: any) => {
@@ -317,30 +391,27 @@ export const initGraph = (config: InitGraphConfig) => {
     });
 
     const onResize = () => {
-        graphCanvas.width = window.innerWidth - 20;
-        graphCanvas.height = 400;
+        graphCanvas.width = document.body.clientWidth - 20;
+        graphCanvas.height = 350;
 
-        const inputNode = graph.nodes.find((node) => node.type === GraphNodeType.Input);
-        const outputNode = graph.nodes.find((node) => node.type === GraphNodeType.Output);
-        if (inputNode && outputNode) {
-            inputNode.position = {
-                x: 50,
-                y: graphCanvas.height / 2,
-            };
-            outputNode.position = {
-                x: graphCanvas.width - 200,
-                y: graphCanvas.height / 2,
-            };
-        }
+        inputGraphNode.position.x = 50;
+        inputGraphNode.position.y = graphCanvas.height / 2;
+
+        outputGraphNode.position.x = graphCanvas.width - 200;
+        outputGraphNode.position.y = graphCanvas.height / 2;
     };
     onResize();
     window.addEventListener("resize", onResize);
 
     return {
         apply(source: AudioNode, destination: AudioDestinationNode) {
+            inputGraphNode.instance.output.disconnect();
+            outputGraphNode.instance.output.connect(destination);
+            source.connect(inputGraphNode.instance.input);
+
             for (const node of graph.nodes) {
                 if (node.type === GraphNodeType.Output) continue;
-                const leftNode = node.type === GraphNodeType.Input ? source : node.instance!.output;
+                const leftNode = node.instance.output;
                 for (const childId in node.connections) {
                     const child = graph.nodes.find(n => n.id === childId);
                     if (!child || child.type === GraphNodeType.Input) {
@@ -348,7 +419,7 @@ export const initGraph = (config: InitGraphConfig) => {
                         delete node.connections[childId];
                         continue;
                     }
-                    const rightNode = child.type === GraphNodeType.Output ? destination : child.instance!.input;
+                    const rightNode = child.instance.input;
                     leftNode.connect(rightNode);
                 }
             }
