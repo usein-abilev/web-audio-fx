@@ -22,7 +22,8 @@ export class AudioPlugin extends AudioGraphNode {
         this.mixSliderElement = createPluginUI().slider("Mix", (value) => this.setMixValue(value / 100), {
             min: 0,
             max: 100,
-            defaultValue: this.getMixValue() * 100,
+            value: this.getMixValue() * 100,
+            defaultValue: 100,
         });
     }
 

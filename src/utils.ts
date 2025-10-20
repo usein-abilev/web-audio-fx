@@ -1,3 +1,11 @@
+/**
+ * Converts linear value to db
+ * 0.001 -> -60 dB
+ * 0.1 -> -20 dB
+*/
+export const linearToDecibel = (a: number) => 20 * Math.log10(a);
+export const decibelToLinear = (a: number) => 10 ** (a / 20);
+
 export const randomId = () => {
     const timestamp = Date.now().toString(16);
     const random = Math.floor(Math.random() * 2 ** 52).toString(16);
@@ -48,18 +56,27 @@ export const createPluginUI = () => {
                 min?: number;
                 max?: number;
                 step?: number;
-                defaultValue?: number; 
-            } = { defaultValue: 0 }
+                defaultValue?: number;
+                value: number;
+                formatter?: (value: number) => string | HTMLElement;
+            } = { defaultValue: 0, value: 0 }
         ) {
             const band = document.createElement("div");
             const input = document.createElement("input");
             const label = document.createElement("label");
             const displayValueEl = document.createElement("label");
 
-            displayValueEl.innerText = (params.defaultValue || 0).toFixed(1)
+            const inputValue = params.value ?? params.defaultValue ?? 0;
+            if (typeof params.formatter === "function") {
+                displayValueEl.append(params.formatter(inputValue));
+            } else {
+                displayValueEl.innerText = (inputValue).toFixed(1)
+            }
+
             band.className = "band";
             input.type = "range";
-
+            input.value = String(inputValue); 
+            console.log("Set input value for '%s'", content, input.value, params.value);
             label.append(content);
             band.append(input, displayValueEl, label);
 
@@ -69,7 +86,12 @@ export const createPluginUI = () => {
             input.addEventListener("input", (ev: Event) => {
                 const value = +(ev.target as HTMLInputElement).value;
                 onChange(value, ev);
-                displayValueEl.innerText = `${value}`;
+                displayValueEl.innerHTML = "";
+                if (typeof params.formatter === "function") {
+                    displayValueEl.append(params.formatter(value));
+                } else {
+                    displayValueEl.innerText = (value).toFixed(1)
+                }
             });
 
             band.addEventListener("dblclick", () => {
@@ -118,7 +140,7 @@ export const createPluginUI = () => {
             onChange: (checked: boolean, event: Event) => any,
             params: { defaultValue?: boolean }
         ) {
-// <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1" aria-disabled="true"></label>
+            // <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1" aria-disabled="true"></label>
             const label = document.createElement("label");
             const input = document.createElement("input");
             input.type = "checkbox";

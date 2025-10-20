@@ -1,4 +1,4 @@
-import { createPluginUI } from "../utils";
+import { createPluginUI, decibelToLinear } from "../utils";
 import AudioGraphNode from "./node";
 
 export class InputGraphNode extends AudioGraphNode {
@@ -38,14 +38,18 @@ export class InputGraphNode extends AudioGraphNode {
     render(parent: HTMLElement) {
         parent.innerHTML = "";
         const builder = createPluginUI();
+
         const container = builder.createContainer(
             builder.checkbox("Mono: ", (value: boolean) => this.setMono(value), { defaultValue: this.mono }),
             builder.slider("Pan", (value: number) => this.stereoPanner.pan.setTargetAtTime(value, this.audioContext.currentTime + 0.01, 0.01), {
                 min: -1,
                 max: 1,
                 step: 0.1,
-                defaultValue: this.stereoPanner.pan.value,
-            })
+                defaultValue: 0,
+                value: this.stereoPanner.pan.value,
+            }),
+            this.inputSlider,
+            this.outputSlider,
         );
         parent.append(container);
     }

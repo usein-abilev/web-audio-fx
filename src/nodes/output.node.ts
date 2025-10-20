@@ -1,3 +1,4 @@
+import { createPluginUI } from "../utils";
 import AudioGraphNode from "./node"
 
 export class OutputGraphNode extends AudioGraphNode {
@@ -23,6 +24,13 @@ export class OutputGraphNode extends AudioGraphNode {
     }
 
     render(parent: HTMLElement) {
-        parent.innerHTML = "<h1>TODO Output Graph Node UI</h1>";
+        parent.innerHTML = "";
+        const builder = createPluginUI();
+
+        const container = builder.createContainer(
+            this.inputSlider,
+            this.outputSlider,
+        );
+        parent.append(container);
     }
 }
