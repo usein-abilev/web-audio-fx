@@ -6,6 +6,29 @@
 export const linearToDecibel = (a: number) => 20 * Math.log10(a);
 export const decibelToLinear = (a: number) => 10 ** (a / 20);
 
+export const normalizeLinear = (value: number, min: number, max: number) => {
+    return min + (max - min) * value;
+}
+export const denormalizeLinear = (value: number, min: number, max: number) => {
+    return (value - min) / (max - min);
+}
+
+/**
+ * Normalizes value in range [0..1]
+ * Slow growth, fast tail
+*/
+export const normalizeLog = (value: number, min: number, max: number) => {
+    return min + (max - min) * (value ** 2.5);
+}
+
+/**
+ * Normalizes the value in range [0..1]
+ * Fast growth, slow end (ideal for attack, release knobs)
+*/
+export const normalizeExpCurve = (value: number, min: number, max: number) => {
+    return min * (max / min) ** value;
+}
+
 export const randomId = () => {
     const timestamp = Date.now().toString(16);
     const random = Math.floor(Math.random() * 2 ** 52).toString(16);
@@ -48,6 +71,17 @@ export const createPluginUI = () => {
             pluginContainer.className = "plugin-container";
             items.forEach((item) => pluginContainer.appendChild(item));
             return pluginContainer;
+        },
+        block(children: HTMLElement[]) {
+            const block = document.createElement("div");
+            block.className = "flex-block";
+            block.append(...children);
+            return block;
+        },
+        splitterHorizontal() {
+            const splitter = document.createElement("div");
+            splitter.className = "horizontal-splitter";
+            return splitter;
         },
         slider(
             content: HTMLElement | string,
@@ -160,7 +194,10 @@ export const createPluginUI = () => {
             content: HTMLElement | string,
             onChange: (value: number, event: Event) => any,
             params: {
+                min?: number;
                 max?: number;
+                speed?: number;
+
                 /* value in coefficient 0..1 */
                 value: number;
                 /* value in coefficient 0..1 */
@@ -187,7 +224,7 @@ export const createPluginUI = () => {
             valueTextDiv.className = "value";
 
             const maxPercent = (params.max ?? 1) * 100;
-            let percent = (params.value ?? params.defaultValue) * 100;
+            let percent = params.value * 100;
             let isDragging = false;
             let lastY = 0;
 
@@ -213,8 +250,8 @@ export const createPluginUI = () => {
                 const delta = lastY - e.clientY;
                 lastY = e.clientY;
 
-                percent += delta * 0.5;
-                percent = Math.max(0, Math.min(maxPercent, percent));
+                percent += delta * (params.speed || 0.5);
+                percent = Math.max(params.min || 0, Math.min(maxPercent, percent));
                 onChange(percent / 100, e);
                 updateKnob();
             });

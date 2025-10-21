@@ -14,10 +14,10 @@ export default abstract class AudioGraphNode {
 
         const knobOptions = {
             min: 0,
-            max: 2,
-            step: 0.1,
+            max: 2.0,
             defaultValue: 1,
             value: 1,
+            speed: 0.3,
             formatter: (percent: number) => `${linearToDecibel(percent).toFixed(1)} dB`
         };
         const setGainDecibels = (gainNode: GainNode, percent: number) => {
