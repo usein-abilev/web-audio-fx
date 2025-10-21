@@ -1,8 +1,4 @@
-import { createPluginUI, decibelToLinear, linearToDecibel } from "../utils";
-
-const GAIN_MIN_VALUE_DB = -60;
-const GAIN_MAX_VALUE_DB = 6;
-const GAIN_STEP = 0.001;
+import { createPluginUI, linearToDecibel } from "../utils";
 
 export default abstract class AudioGraphNode {
     public input: GainNode;
@@ -16,30 +12,27 @@ export default abstract class AudioGraphNode {
         this.input = this.audioContext.createGain();
         this.output = this.audioContext.createGain();
 
-        const sliderOptions = {
+        const knobOptions = {
             min: 0,
-            max: 1.9,
-            step: GAIN_STEP,
+            max: 2,
+            step: 0.1,
             defaultValue: 1,
             value: 1,
-            formatter: (linear: number) => {
-                const decibel = linearToDecibel(linear);
-                return `${decibel.toFixed(1)} dB`;
-            },
+            formatter: (percent: number) => `${linearToDecibel(percent).toFixed(1)} dB`
         };
-        const setGainDecibels = (gainNode: GainNode, value: number) => {
-            gainNode.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+        const setGainDecibels = (gainNode: GainNode, percent: number) => {
+            gainNode.gain.setValueAtTime(percent, this.audioContext.currentTime);
         };
 
-        this.inputSlider = this.builder.slider(
+        this.inputSlider = this.builder.knob(
             "Input Gain",
             (v) => setGainDecibels(this.input, v),
-            sliderOptions
+            knobOptions
         );
-        this.outputSlider = this.builder.slider(
+        this.outputSlider = this.builder.knob(
             "Output Gain",
             (v) => setGainDecibels(this.output, v),
-            sliderOptions
+            knobOptions
         );
     }
 

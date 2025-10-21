@@ -19,11 +19,10 @@ export class AudioPlugin extends AudioGraphNode {
         this.wetNode.connect(this.output);
         this.dryNode.connect(this.output);
 
-        this.mixSliderElement = createPluginUI().slider("Mix", (value) => this.setMixValue(value / 100), {
-            min: 0,
-            max: 100,
-            value: this.getMixValue() * 100,
-            defaultValue: 100,
+        this.mixSliderElement = createPluginUI().knob("Mix", (value) => this.setMixValue(value), {
+            max: 1,
+            value: this.getMixValue(),
+            defaultValue: 1,
         });
     }
 

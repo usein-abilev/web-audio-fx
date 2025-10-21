@@ -75,7 +75,7 @@ export const createPluginUI = () => {
 
             band.className = "band";
             input.type = "range";
-            input.value = String(inputValue); 
+            input.value = String(inputValue);
             console.log("Set input value for '%s'", content, input.value, params.value);
             label.append(content);
             band.append(input, displayValueEl, label);
@@ -140,7 +140,6 @@ export const createPluginUI = () => {
             onChange: (checked: boolean, event: Event) => any,
             params: { defaultValue?: boolean }
         ) {
-            // <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1" aria-disabled="true"></label>
             const label = document.createElement("label");
             const input = document.createElement("input");
             input.type = "checkbox";
@@ -156,6 +155,78 @@ export const createPluginUI = () => {
             );
 
             return label;
+        },
+        knob(
+            content: HTMLElement | string,
+            onChange: (value: number, event: Event) => any,
+            params: {
+                max?: number;
+                /* value in coefficient 0..1 */
+                value: number;
+                /* value in coefficient 0..1 */
+                defaultValue: number;
+                formatter?: (v: number) => string;
+            }
+        ) {
+            const knobContainer = document.createElement("div");
+            knobContainer.className = "knob-container";
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.append(content);
+
+            const knob = document.createElement("div");
+            const arc = document.createElement("div");
+            const indicator = document.createElement("div");
+            knob.className = "knob";
+            arc.className = "arc";
+            indicator.className = "indicator";
+            knob.append(arc, indicator);
+
+            const valueTextDiv = document.createElement("div");
+            valueTextDiv.className = "value";
+
+            const maxPercent = (params.max ?? 1) * 100;
+            let percent = (params.value ?? params.defaultValue) * 100;
+            let isDragging = false;
+            let lastY = 0;
+
+            const updateKnob = () => {
+                const angle = (percent * 270) / maxPercent - 135;
+                arc.style.setProperty("--angle", `${(270 / maxPercent) * percent}deg`);
+                indicator.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+                valueTextDiv.textContent = params.formatter?.(percent / 100) || String(percent);
+            }
+
+            knob.addEventListener("mousedown", e => {
+                isDragging = true;
+                lastY = e.clientY;
+            });
+            knob.addEventListener("dblclick", e => {
+                percent = params.defaultValue * 100;
+                onChange(percent / 100, e);
+                updateKnob();
+            });
+            document.addEventListener("mouseup", () => isDragging = false);
+            document.addEventListener("mousemove", (e) => {
+                if (!isDragging) return;
+                const delta = lastY - e.clientY;
+                lastY = e.clientY;
+
+                percent += delta * 0.5;
+                percent = Math.max(0, Math.min(maxPercent, percent));
+                onChange(percent / 100, e);
+                updateKnob();
+            });
+
+            updateKnob();
+
+            knobContainer.append(
+                label,
+                knob,
+                valueTextDiv,
+            );
+            return knobContainer;
         },
     };
 };
