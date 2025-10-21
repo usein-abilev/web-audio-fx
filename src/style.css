@@ -278,3 +278,15 @@ input[type="range"]:active::-moz-range-thumb {
   font-size: 14px;
   color: #ccc;
 }
+
+.flex-block { 
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.horizontal-splitter {
+    width: 4px;
+    background: var(--outline-color);
+    border-radius: 4px;
+}

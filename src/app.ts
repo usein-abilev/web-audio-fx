@@ -3,6 +3,7 @@ import { initGraph, type GraphState } from "./graph"
 import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
 import { DelayPlugin } from "./plugins/delay";
+import { CompressorPlugin } from "./plugins/compressor";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
@@ -67,6 +68,11 @@ const PLUGINS = [
         id: "delay",
         name: "Delay",
         getInstance: (actx: AudioContext) => new DelayPlugin(actx),
+    },
+    {
+        id: "compressor",
+        name: "Compressor",
+        getInstance: (actx: AudioContext) => new CompressorPlugin(actx),
     },
 ];
 
