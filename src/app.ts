@@ -216,15 +216,9 @@ window.addEventListener("load", async () => {
 
         // draw playback cursor
         if (state.playback && state.sourceNode) {
-            let elapsed = state.audioContext.currentTime - state.playback.startedTime;
-            if (state.sourceNode.loop) {
-                elapsed %= state.selection.selected
-                    ? state.sourceNode.loopStart - state.sourceNode.loopEnd
-                    : state.rawAudioBuffer!.duration;
-            }
-            elapsed += state.playbackOffsetSeconds;
-
-            const playbackOffsetX = (elapsed * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            const elapsed = state.audioContext.currentTime - state.playback.startedTime;
+            const playbackOffset = calculatePlaybackOffset(elapsed);
+            const playbackOffsetX = (playbackOffset * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
             canvasContext.beginPath();
             canvasContext.moveTo(playbackOffsetX, 0);
             canvasContext.lineTo(playbackOffsetX, canvas.height);
@@ -322,15 +316,35 @@ window.addEventListener("load", async () => {
         playButton.innerText = (state.playback ? "Pause" : "Play") + ` (${KEYBOARD_BINDS.PLAY})`;
     };
 
+    const calculatePlaybackOffset = (played: number) => {
+        if (!state.sourceNode) return 0;
+
+        let newOffset = state.playbackOffsetSeconds + played;
+
+        if (state.sourceNode.loop) {
+            if (state.selection.selected) {
+                const duration = state.sourceNode.loopEnd - state.sourceNode.loopStart;
+                const offsetInLoop = ((newOffset - state.sourceNode.loopStart) % duration) + duration % duration;
+                newOffset = state.sourceNode.loopStart + offsetInLoop;
+            } else {
+                newOffset %= state.rawAudioBuffer!.duration;
+            }
+        }
+
+        return newOffset;
+    }
+
     const pauseAudio = () => {
         if (!state.playback) return false;
         if (state.sourceNode) {
-            state.playbackOffsetSeconds += state.audioContext.currentTime - state.playback.startedTime;
+            const played = state.audioContext.currentTime - state.playback.startedTime;
+            state.playbackOffsetSeconds = calculatePlaybackOffset(played);
+
             state.sourceNode.onended = null;
             state.sourceNode.stop();
             state.sourceNode.disconnect();
             state.sourceNode = null;
-            console.log("Played seconds:", state.playbackOffsetSeconds, state.rawAudioBuffer!.duration);
+            console.log("Pause! Played seconds: (%f sec, offset = %f sec)", played, state.playbackOffsetSeconds, state.rawAudioBuffer!.duration);
         }
         state.playback = null;
         updatePlayTextButton();
@@ -368,22 +382,17 @@ window.addEventListener("load", async () => {
             }
         };
 
-        // BUG: Incorrect pause offset handling when selected=true
-        // Check how 'playbackOffsetSeconds' calculated inside the pauseAudio logic
+        let duration: number = 0;
         if (state.selection.selected) {
-            if (state.sourceNode.loop) {
-                state.sourceNode.start(0, state.sourceNode.loopStart);
-            } else {
-                state.sourceNode.start(
-                    0,
-                    state.sourceNode.loopStart,
-                    state.sourceNode.loopEnd - state.sourceNode.loopStart
-                );
-            }
-        } else {
-            state.sourceNode.start(0, state.playbackOffsetSeconds);
+            const start = state.sourceNode.loop ? state.sourceNode.loopStart : state.playbackOffsetSeconds;
+            duration = state.sourceNode.loopEnd - start;
         }
 
+        state.sourceNode.start(
+            0,
+            state.playbackOffsetSeconds,
+            state.selection.selected && !state.sourceNode.loop ? duration : undefined
+        );
         state.playback = {
             startedTime: state.audioContext.currentTime,
         };
