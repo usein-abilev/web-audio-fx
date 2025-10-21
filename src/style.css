@@ -27,7 +27,6 @@ body {
     padding: 10px;
     display: flex;
     min-width: 320px;
-    /* min-height: 100vh; */
 }
 
 .wrapper {
@@ -113,7 +112,7 @@ hr {
 
 .plugin-container {
     display: flex;
-    gap: 2px;
+    gap: 20px;
     justify-content: center;
     background: var(--secondary-bg-color);
     padding: 20px;
@@ -170,7 +169,7 @@ input[type="range"]::-webkit-slider-thumb {
     border-radius: 3px;
     box-shadow: 0 0 4px rgba(0,0,0,0.4);
     transition: background 0.2s;
-    margin: -8px;
+    margin-left: -8px;
 }
 input[type="range"]::-moz-range-thumb {
     width: 26px;
@@ -225,79 +224,57 @@ input[type="range"]:active::-moz-range-thumb {
 
 #context-menu li:hover {
   background-color: #333;
-} 
-/* a {
-font-weight: 500;
-color: #646cff;
-text-decoration: inherit;
 }
 
-a:hover {
-color: #535bf2;
-} 
-
-
-h1 {
-font-size: 3.2em;
-line-height: 1.1;
+.knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
 }
 
-
-.logo {
-height: 6em;
-padding: 1.5em;
-will-change: filter;
-transition: filter 300ms;
+.label {
+  font-size: 16px;
+  margin-bottom: 5px;
 }
 
-.logo:hover {
-filter: drop-shadow(0 0 2em #646cffaa);
+.knob {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.logo.vanilla:hover {
-filter: drop-shadow(0 0 2em #3178c6aa);
+.arc {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  --color: #4fd0e2;
+  background: conic-gradient(var(--color) var(--angle), #333 0deg);
+  transform: rotate(225deg); 
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 61%);
+  mask: radial-gradient(circle, transparent 60%, black 61%);
 }
 
-.card {
-padding: 2em;
+.indicator {
+  position: absolute;
+  width: 4px;
+  height: 25px;
+  background: #ddd;
+  border-radius: 2px;
+  top: 10px;
+  left: 50%;
+  transform-origin: center bottom;
+  transform: translateX(-50%) rotate(0deg);
 }
 
-.read-the-docs {
-    color: #888;
+.value {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #ccc;
 }
-
-button {
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 0.6em 1em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background-color: #1a1a1a;
-    cursor: pointer;
-    transition: border-color 0.25s;
-}
-
-button:hover {
-    border-color: #646cff;
-}
-
-button:focus,
-button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-    :root {
-        color: #213547;
-        background-color: #ffffff;
-    }
-
-    a:hover {
-        color: #747bff;
-    }
-
-    button {
-        background-color: #f9f9f9;
-    }
-} */

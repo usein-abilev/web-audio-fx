@@ -1,4 +1,4 @@
-import { createPluginUI, decibelToLinear } from "../utils";
+import { createPluginUI } from "../utils";
 import AudioGraphNode from "./node";
 
 export class InputGraphNode extends AudioGraphNode {
@@ -6,6 +6,12 @@ export class InputGraphNode extends AudioGraphNode {
 
     private channelMerger: ChannelMergerNode;
     private stereoPanner: StereoPannerNode;
+
+    private panKnob: HTMLElement;
+
+    public get name() {
+        return "Input Node";
+    }
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
@@ -15,10 +21,25 @@ export class InputGraphNode extends AudioGraphNode {
 
         this.input.connect(this.stereoPanner);
         this.stereoPanner.connect(this.output);
-    }
 
-    public get name() {
-        return "Input Node";
+        this.panKnob = this.builder.knob(
+            "Pan",
+            (value: number) => {
+                this.stereoPanner.pan.setValueAtTime(value * 2 - 1, this.audioContext.currentTime),
+                    console.log("stereo panner:", this.stereoPanner.pan.value, value);
+            },
+            {
+                max: 1,
+                defaultValue: 0.5,
+                value: (this.stereoPanner.pan.value + 1) / 2,
+                formatter: (v) => {
+                    let prefix = "C";
+                    if (v < 0.5) prefix = "L";
+                    else if (v > 0.5) prefix = "R";
+                    return `${Math.abs(v * 200 - 100).toFixed(0)} ${prefix}`;
+                },
+            }
+        );
     }
 
     setMono(mono: boolean) {
@@ -41,16 +62,11 @@ export class InputGraphNode extends AudioGraphNode {
 
         const container = builder.createContainer(
             builder.checkbox("Mono: ", (value: boolean) => this.setMono(value), { defaultValue: this.mono }),
-            builder.slider("Pan", (value: number) => this.stereoPanner.pan.setTargetAtTime(value, this.audioContext.currentTime + 0.01, 0.01), {
-                min: -1,
-                max: 1,
-                step: 0.1,
-                defaultValue: 0,
-                value: this.stereoPanner.pan.value,
-            }),
+            this.panKnob,
             this.inputSlider,
             this.outputSlider,
         );
         parent.append(container);
     }
 }
+
