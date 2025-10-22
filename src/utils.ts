@@ -248,25 +248,32 @@ export const createPluginUI = () => {
                 valueTextDiv.textContent = params.formatter?.(percent / 100) || String(percent);
             }
 
+            const moveKnob = (value: number, event: Event) => {
+                percent = value;
+                percent = Math.max(params.min || 0, Math.min(maxPercent, percent));
+                onChange(percent / 100, event);
+                updateKnob();
+            }
+
             knob.addEventListener("mousedown", e => {
                 isDragging = true;
                 lastY = e.clientY;
             });
             knob.addEventListener("dblclick", e => {
-                percent = params.defaultValue * 100;
-                onChange(percent / 100, e);
-                updateKnob();
+                moveKnob(params.defaultValue * 100, e);
+            });
+            knob.addEventListener("wheel", event => {
+                const factor = -1 * Math.sign(event.deltaY);
+                percent += factor * 2.0;
+                moveKnob(percent, event);
             });
             document.addEventListener("mouseup", () => isDragging = false);
-            document.addEventListener("mousemove", (e) => {
+            document.addEventListener("mousemove", (event) => {
                 if (!isDragging) return;
-                const delta = lastY - e.clientY;
-                lastY = e.clientY;
-
+                const delta = lastY - event.clientY;
+                lastY = event.clientY;
                 percent += delta * (params.speed || 0.5);
-                percent = Math.max(params.min || 0, Math.min(maxPercent, percent));
-                onChange(percent / 100, e);
-                updateKnob();
+                moveKnob(percent, event);
             });
 
             updateKnob();
