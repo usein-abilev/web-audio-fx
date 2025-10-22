@@ -15,7 +15,7 @@ export const createContextMenu = (
     contextMenuElement.innerHTML = "";
     contextMenuElement.append(ul);
 
-    element.addEventListener("mousedown", (ev) => {
+    element.addEventListener("mousedown", () => {
         contextMenuElement.style.display = "none";
     });
     element.addEventListener("contextmenu", (event: PointerEvent) => {

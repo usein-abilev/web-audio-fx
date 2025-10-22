@@ -1,4 +1,4 @@
-import { createPluginUI, linearToDecibel, normalizeExpCurve, normalizeLinear, normalizeLog } from "../utils";
+import { createPluginUI, normalizeExpCurve, normalizeLinear, normalizeLog } from "../utils";
 import { AudioPlugin } from "./plugin";
 
 export class CompressorPlugin extends AudioPlugin {
@@ -63,8 +63,5 @@ export class CompressorPlugin extends AudioPlugin {
         parent.innerHTML = "";
         parent.appendChild(container);
     }
-
-    private setDecibel(param: AudioParam, value: number) {
-        param.setValueAtTime(linearToDecibel(value), this.audioContext.currentTime);
-    }
 }
+
