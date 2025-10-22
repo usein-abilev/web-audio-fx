@@ -1,5 +1,5 @@
 import { AudioPlugin } from "./plugin";
-import { createPluginUI, fetchAudioAsArrayBuffer } from "../utils";
+import { createPluginUI, fetchAudioAsArrayBuffer, withBasePath } from "../utils";
 
 const IMPULSE_RESPONSES = [
     {
@@ -14,7 +14,7 @@ const IMPULSE_RESPONSES = [
         title: "Claustrofobia v1.1",
         path: "/impulse_responses/Claustrofobia v1.1/Dustbin 3 mono/Dustbin 3.C.wav",
     },
-];
+].map((o) => ({ ...o, path: withBasePath(o.path) }));
 
 export class ReverbPlugin extends AudioPlugin {
     public static readonly NAME = "Reverb (IR)";
