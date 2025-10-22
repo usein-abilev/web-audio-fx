@@ -40,6 +40,11 @@ body {
     border-radius: 4px;
 }
 
+.wrapper .header {
+    display: flex;
+    gap: 10px;
+}
+
 button {
     user-select: none;
     cursor: pointer;

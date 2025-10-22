@@ -1,4 +1,5 @@
 import { validateAudioFile } from "./utils/file";
+import { createVolumeMeter } from "./meter"
 import { initGraph } from "./graph"
 import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
@@ -96,6 +97,8 @@ window.addEventListener("load", async () => {
     const canvas = document.querySelector("canvas")!;
     const canvasContext = canvas.getContext("2d")!;
 
+    const volumeMeter = createVolumeMeter(state.audioContext);
+
     const graph = initGraph({
         audioContext: state.audioContext,
         onUpdate: (graph) => console.log("Audio Graph Updated!", graph),
@@ -118,7 +121,6 @@ window.addEventListener("load", async () => {
             pluginSelector.value = "";
         });
     })();
-
 
     let cursorOffsetX = 0; // set on mouse move event
     let scaleCursorOffsetX = 0; // set on mouse wheel event
@@ -190,6 +192,7 @@ window.addEventListener("load", async () => {
         state.sourceNode.loopEnd = Math.max(loopStart, loopEnd);
 
         graph.apply(state.sourceNode, state.audioContext.destination);
+        graph.analyze(volumeMeter.connect);
 
         state.sourceNode.onended = (event) => {
             if (state.playback) {
@@ -531,7 +534,9 @@ window.addEventListener("load", async () => {
     });
 
     const resizeCanvas = () => {
-        canvas.width = document.body.clientWidth - 20;
+        const meterWidth = volumeMeter.getWidth();
+        volumeMeter.resize(meterWidth, 200);
+        canvas.width = document.body.clientWidth - meterWidth - 30;
         canvas.height = 200;
         renderedSampleCanvas = null;
     };

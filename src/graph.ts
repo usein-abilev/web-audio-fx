@@ -424,6 +424,9 @@ export const initGraph = (config: InitGraphConfig) => {
                 }
             }
         },
+        analyze(connect: (node: AudioNode) => any) {
+            connect(outputGraphNode.instance.output);
+        },
         addPlugin(plugin: AudioPlugin) {
             const newNode: GraphNode = {
                 id: randomId(),
