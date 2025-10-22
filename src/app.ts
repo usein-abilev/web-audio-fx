@@ -1,6 +1,5 @@
-import { fetchAudioAsArrayBuffer } from "./utils"
 import { validateAudioFile } from "./utils/file";
-import { initGraph, type GraphState } from "./graph"
+import { initGraph } from "./graph"
 import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
 import { DelayPlugin } from "./plugins/delay";
