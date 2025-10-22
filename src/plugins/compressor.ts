@@ -53,6 +53,7 @@ export class CompressorPlugin extends AudioPlugin {
     render(parent: HTMLElement) {
         const builder = createPluginUI();
         const container = builder.createContainer(
+            builder.splitterHorizontal(),
             this.blockElement,
             builder.splitterHorizontal(),
             this.mixSliderElement,

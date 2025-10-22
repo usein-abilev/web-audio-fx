@@ -1,4 +1,5 @@
 import { fetchAudioAsArrayBuffer } from "./utils"
+import { validateAudioFile } from "./utils/file";
 import { initGraph, type GraphState } from "./graph"
 import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
@@ -46,6 +47,8 @@ const state = {
      */
     rawAudioBuffer: null as AudioBuffer | null,
     sourceNode: null as AudioBufferSourceNode | null,
+
+    currentFile: null as File | null,
 };
 
 const KEYBOARD_BINDS = {
@@ -78,6 +81,8 @@ const PLUGINS = [
 
 window.addEventListener("load", async () => {
     const loadSampleButton = document.getElementById("load-sample")!;
+    const sampleFileInput = document.getElementById("sample-file-input")! as HTMLInputElement;
+
     const loopCheckbox = document.getElementById("loop-playback")!;
     const recordButton = document.getElementById("record")!;
     const playButton = document.getElementById("play")!;
@@ -115,201 +120,6 @@ window.addEventListener("load", async () => {
     let sampleScale = 1; // sample zoom factor
 
     let renderedSampleCanvas: HTMLCanvasElement | null = null;
-
-    const updateAudioBuffer = (buffer: AudioBuffer) => {
-        state.rawAudioBuffer = buffer;
-        sampleScale = 1;
-        scaleCursorOffsetX = 0;
-        cursorOffsetX = 0;
-        renderedSampleCanvas = null;
-    }
-
-    const renderSampleWaves = (): HTMLCanvasElement => {
-        const localCanvas = document.createElement("canvas");
-        localCanvas.width = canvas.width;
-        localCanvas.height = canvas.height;
-        const ctx = localCanvas.getContext("2d")!;
-
-        if (!state.rawAudioBuffer) return localCanvas;
-
-        const channelBuffers = [];
-        for (let i = 0; i < state.rawAudioBuffer.numberOfChannels; i++) {
-            channelBuffers.push(state.rawAudioBuffer.getChannelData(i));
-        }
-
-        const scaledWidth = canvas.width * sampleScale;
-
-        // draw sample wave heights
-        ctx.beginPath();
-        for (let i = 0; i < state.rawAudioBuffer.length; i++) {
-            const x = (i / state.rawAudioBuffer.length) * scaledWidth + scaleCursorOffsetX;
-            if (x > canvas.width || x < 0) continue;
-            ctx.moveTo(x, canvas.height / 2);
-            for (const channel of channelBuffers) {
-                ctx.lineTo(x, canvas.height / 2 + channel.at(i)! * (canvas.height / 2));
-            }
-        }
-        ctx.closePath();
-        ctx.strokeStyle = "#a16c46ff";
-        ctx.stroke();
-
-        return localCanvas;
-    };
-
-    let prevTimestamp = 0;
-    const renderCanvas = (timestamp: number) => {
-        if (!prevTimestamp) {
-            prevTimestamp = timestamp;
-            return requestAnimationFrame(renderCanvas);
-        }
-
-        const deltaTime = (timestamp - prevTimestamp) / 1000;
-        prevTimestamp = timestamp;
-
-        if (!state.rawAudioBuffer) {
-            return requestAnimationFrame(renderCanvas);
-        }
-
-        const waveform = state.rawAudioBuffer!;
-
-        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-
-        // draw frame rate
-        canvasContext.font = "14px Monospace";
-        canvasContext.fillStyle = "rgba(46, 204, 6, 1)";
-        canvasContext.fillText("FPS: " + (1 / deltaTime).toFixed(0), 14, 24);
-
-        // caching already drawn canvas
-        renderedSampleCanvas ??= renderSampleWaves();
-        canvasContext.drawImage(renderedSampleCanvas, 0, 0);
-
-        const scaledWidth = canvas.width * sampleScale;
-
-        // draw cursor line
-        canvasContext.beginPath();
-        canvasContext.moveTo(cursorOffsetX, 0);
-        canvasContext.lineTo(cursorOffsetX, canvas.height);
-        canvasContext.closePath();
-        canvasContext.strokeStyle = "#6d6d6d44";
-        canvasContext.stroke();
-
-        // draw selection area
-        if (state.selection.selecting || state.selection.selected) {
-            const start = (state.selection.start / waveform.length) * scaledWidth + scaleCursorOffsetX;
-            const end = (state.selection.end / waveform.length) * scaledWidth + scaleCursorOffsetX;
-
-            canvasContext.fillStyle = "rgba(67, 140, 235, 0.5)";
-            canvasContext.fillRect(start, 0, end - start, canvas.height);
-
-            // draw start line
-            canvasContext.beginPath();
-            canvasContext.moveTo(start, 0);
-            canvasContext.lineTo(start, canvas.height);
-            canvasContext.closePath();
-            canvasContext.lineWidth = 2;
-            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
-            canvasContext.stroke();
-
-            // draw end line
-            canvasContext.beginPath();
-            canvasContext.moveTo(end, 0);
-            canvasContext.lineTo(end, canvas.height);
-            canvasContext.closePath();
-            canvasContext.lineWidth = 2;
-            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
-            canvasContext.stroke();
-        }
-
-        // draw playback cursor
-        if (state.playback && state.sourceNode) {
-            const elapsed = state.audioContext.currentTime - state.playback.startedTime;
-            const playbackOffset = calculatePlaybackOffset(elapsed);
-            const playbackOffsetX = (playbackOffset * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
-            canvasContext.beginPath();
-            canvasContext.moveTo(playbackOffsetX, 0);
-            canvasContext.lineTo(playbackOffsetX, canvas.height);
-            canvasContext.closePath();
-            canvasContext.strokeStyle = "#ffffffff";
-            canvasContext.lineWidth = 2;
-            canvasContext.stroke();
-        } else if (state.playbackOffsetSeconds > 0) {
-            const playbackOffsetX =
-                (state.playbackOffsetSeconds * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
-            canvasContext.beginPath();
-            canvasContext.moveTo(playbackOffsetX, 0);
-            canvasContext.lineTo(playbackOffsetX, canvas.height);
-            canvasContext.closePath();
-            canvasContext.strokeStyle = "#ffffffff";
-            canvasContext.lineWidth = 2;
-            canvasContext.stroke();
-        }
-
-        requestAnimationFrame(renderCanvas);
-    };
-    requestAnimationFrame(renderCanvas);
-
-    const createToggleRecord = () => {
-        const constraints: MediaStreamConstraints = {
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-                channelCount: 1,
-                sampleRate: AUDIO_SAMPLE_RATE,
-            },
-        };
-        let mediaRecorder: MediaRecorder | null = null;
-        return async () => {
-            if (!state.recording) {
-                const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-                    .catch(console.error);
-                if (!mediaStream) return;
-
-                let recordedChunks = [] as Blob[];
-                mediaRecorder = new MediaRecorder(mediaStream, {
-                    mimeType: "audio/webm",
-                });
-                mediaRecorder.ondataavailable = (event) => {
-                    console.log("New recorded data of size:", event.data.size);
-                    recordedChunks.push(event.data);
-                };
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: "audio/webm" });
-                    recordedChunks = [];
-                    blob
-                        .arrayBuffer()
-                        .then((buffer) => state.audioContext.decodeAudioData(buffer))
-                        .then((buffer) => updateAudioBuffer(buffer))
-                        .catch((reason) =>
-                            console.error(
-                                "Unable to get an array buffer from MediaRecorder:",
-                                reason
-                            )
-                        );
-                };
-                mediaRecorder.start();
-                state.recording = true;
-            } else {
-                if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    mediaRecorder = null;
-                }
-                state.recording = false;
-            }
-
-            recordButton.innerText = state.recording ? "Stop" : "Record";
-        }
-    }
-    recordButton.onclick = createToggleRecord();
-
-    fetchAudioAsArrayBuffer("/voice.wav")
-        .then((buffer) => state.audioContext.decodeAudioData(buffer))
-        .then((audioBuffer) => updateAudioBuffer(audioBuffer));
-
-    state.audioContext.onstatechange = (event) => {
-        console.log("audio context state changed:", event);
-        // updatePlaybackState();
-    };
 
     const positionToSampleIndex = (mouseX: number): number => {
         if (!state.rawAudioBuffer) return 0;
@@ -405,6 +215,238 @@ window.addEventListener("load", async () => {
         updatePlayTextButton();
     };
 
+    const updateAudioBuffer = (buffer: AudioBuffer) => {
+        pauseAudio();
+        sampleScale = 1;
+        scaleCursorOffsetX = 0;
+        cursorOffsetX = 0;
+        state.rawAudioBuffer = buffer;
+        renderedSampleCanvas = null;
+    }
+
+    const renderSampleWaves = (): HTMLCanvasElement => {
+        const localCanvas = document.createElement("canvas");
+        localCanvas.width = canvas.width;
+        localCanvas.height = canvas.height;
+        const ctx = localCanvas.getContext("2d")!;
+
+        if (!state.rawAudioBuffer) return localCanvas;
+
+        const channelBuffer = state.rawAudioBuffer.getChannelData(0);
+
+        const scaledWidth = canvas.width * sampleScale;
+        const totalSamples = channelBuffer.length;
+        const samplePerPixel = Math.ceil(totalSamples / scaledWidth);
+
+        ctx.beginPath();
+        const middleY = canvas.height / 2;
+        for (let x = 0; x < canvas.width; x++) {
+            const start = Math.floor(((x - scaleCursorOffsetX) / scaledWidth) * totalSamples);
+            const end = Math.min(totalSamples, start + samplePerPixel);
+            let min = 1;
+            let max = -1;
+            for (let i = start; i < end && i < channelBuffer.length; i++) {
+                const sample = channelBuffer[i];
+                if (sample > max) max = sample;
+                if (sample < min) min = sample;
+            }
+
+            ctx.moveTo(x, (1 + min) * middleY);
+            ctx.lineTo(x, (1 + max) * middleY);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "rgba(126, 36, 128, 1)"
+        ctx.stroke();
+
+        return localCanvas;
+    };
+
+    let prevTimestamp = 0;
+    const renderCanvas = (timestamp: number) => {
+        if (!prevTimestamp) {
+            prevTimestamp = timestamp;
+            return requestAnimationFrame(renderCanvas);
+        }
+
+        const deltaTime = (timestamp - prevTimestamp) / 1000;
+        prevTimestamp = timestamp;
+
+        if (!state.rawAudioBuffer) {
+            return requestAnimationFrame(renderCanvas);
+        }
+
+        const waveform = state.rawAudioBuffer!;
+
+        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+
+        // caching already drawn canvas
+        renderedSampleCanvas ??= renderSampleWaves();
+        canvasContext.drawImage(renderedSampleCanvas, 0, 0);
+
+        const scaledWidth = canvas.width * sampleScale;
+
+        // draw cursor line
+        canvasContext.beginPath();
+        canvasContext.moveTo(cursorOffsetX, 0);
+        canvasContext.lineTo(cursorOffsetX, canvas.height);
+        canvasContext.closePath();
+        canvasContext.strokeStyle = "#6d6d6d44";
+        canvasContext.stroke();
+
+        // draw selection area
+        if (state.selection.selecting || state.selection.selected) {
+            const start = (state.selection.start / waveform.length) * scaledWidth + scaleCursorOffsetX;
+            const end = (state.selection.end / waveform.length) * scaledWidth + scaleCursorOffsetX;
+
+            canvasContext.fillStyle = "rgba(67, 140, 235, 0.5)";
+            canvasContext.fillRect(start, 0, end - start, canvas.height);
+
+            // draw start line
+            canvasContext.beginPath();
+            canvasContext.moveTo(start, 0);
+            canvasContext.lineTo(start, canvas.height);
+            canvasContext.closePath();
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
+            canvasContext.stroke();
+
+            // draw end line
+            canvasContext.beginPath();
+            canvasContext.moveTo(end, 0);
+            canvasContext.lineTo(end, canvas.height);
+            canvasContext.closePath();
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeStyle = "rgba(67, 140, 235, 1)";
+            canvasContext.stroke();
+        }
+
+        // draw playback cursor
+        if (state.playback && state.sourceNode) {
+            const elapsed = state.audioContext.currentTime - state.playback.startedTime;
+            const playbackOffset = calculatePlaybackOffset(elapsed);
+            const playbackOffsetX = (playbackOffset * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            canvasContext.beginPath();
+            canvasContext.moveTo(playbackOffsetX, 0);
+            canvasContext.lineTo(playbackOffsetX, canvas.height);
+            canvasContext.closePath();
+            canvasContext.strokeStyle = "#ffffffff";
+            canvasContext.lineWidth = 2;
+            canvasContext.stroke();
+        } else if (state.playbackOffsetSeconds > 0) {
+            const playbackOffsetX =
+                (state.playbackOffsetSeconds * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            canvasContext.beginPath();
+            canvasContext.moveTo(playbackOffsetX, 0);
+            canvasContext.lineTo(playbackOffsetX, canvas.height);
+            canvasContext.closePath();
+            canvasContext.strokeStyle = "#ffffffff";
+            canvasContext.lineWidth = 2;
+            canvasContext.stroke();
+        }
+
+        // draw frame rate
+        canvasContext.font = "14px Monospace";
+        canvasContext.fillStyle = "rgba(46, 204, 6, 1)";
+        canvasContext.fillText("FPS: " + (1 / deltaTime).toFixed(0), 14, 24);
+
+        if (state.currentFile) {
+            const fileText = `File ${state.currentFile.name} | ${(state.currentFile.size / 1024 / 1024).toFixed(2)} MB`;
+            const fileTextWidth = canvasContext.measureText(fileText);
+            canvasContext.fillStyle = "rgba(255, 255, 255, 1)"
+            canvasContext.fillText(fileText, canvas.width - fileTextWidth.width - 10, 24);
+        }
+
+        requestAnimationFrame(renderCanvas);
+    };
+    requestAnimationFrame(renderCanvas);
+
+    const createToggleRecord = () => {
+        const constraints: MediaStreamConstraints = {
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                channelCount: 1,
+                sampleRate: AUDIO_SAMPLE_RATE,
+            },
+        };
+        let mediaRecorder: MediaRecorder | null = null;
+        return async () => {
+            if (!state.recording) {
+                const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+                    .catch(console.error);
+                if (!mediaStream) return;
+
+                let recordedChunks = [] as Blob[];
+                mediaRecorder = new MediaRecorder(mediaStream, {
+                    mimeType: "audio/webm",
+                });
+                mediaRecorder.ondataavailable = (event) => {
+                    console.log("New recorded data of size:", event.data.size);
+                    recordedChunks.push(event.data);
+                };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: "audio/webm" });
+                    recordedChunks = [];
+                    blob
+                        .arrayBuffer()
+                        .then((buffer) => state.audioContext.decodeAudioData(buffer))
+                        .then((buffer) => updateAudioBuffer(buffer))
+                        .catch((reason) =>
+                            console.error(
+                                "Unable to get an array buffer from MediaRecorder:",
+                                reason
+                            )
+                        );
+                };
+                mediaRecorder.start();
+                state.recording = true;
+            } else {
+                if (mediaRecorder) {
+                    mediaRecorder.stop();
+                    mediaRecorder = null;
+                }
+                state.recording = false;
+            }
+
+            recordButton.innerText = state.recording ? "Stop" : "Record";
+        }
+    }
+    recordButton.onclick = createToggleRecord();
+
+    loadSampleButton.addEventListener("click", () => sampleFileInput.click());
+    sampleFileInput.addEventListener("change", () => {
+        const [file] = sampleFileInput.files || [];
+        if (!file) return;
+
+        const validateResult = validateAudioFile(file);
+        if (!validateResult.ok) {
+            console.error(validateResult.message, file);
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            if (!(reader.result instanceof ArrayBuffer)) return;
+            state.audioContext.decodeAudioData(reader.result)
+                .then(updateAudioBuffer)
+                .then(() => state.currentFile = file)
+                .catch(error => console.error("Error during decoding an audio file:", error));
+        };
+
+        reader.onerror = (error) => {
+            // TODO: Add proper error handling for better user experience
+            console.error("File reading error", error);
+        };
+        reader.onprogress = (ev) => {
+            // TODO: Add progress bar
+            console.log("File reading progress:", ev);
+        }
+
+        reader.readAsArrayBuffer(file);
+    });
+
     const togglePlayback = () => {
         if (!state.playback) {
             playAudio();
@@ -446,9 +488,11 @@ window.addEventListener("load", async () => {
             state.selection.selected = state.selection.start !== state.selection.end;
             console.log("Selection event on mouseup:", state.selection);
 
-            const mousePlaybackSeconds =
+            const mousePlaybackSeconds = Math.max(0,
                 (Math.min(state.selection.start, state.selection.end) / state.rawAudioBuffer.length) *
-                state.rawAudioBuffer.duration;
+                state.rawAudioBuffer.duration
+            );
+
             if (state.playback) {
                 pauseAudio();
                 state.playbackOffsetSeconds = mousePlaybackSeconds;
