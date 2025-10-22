@@ -19,8 +19,8 @@ export class DelayPlugin extends AudioPlugin {
         this.feedback = audioContext.createGain();
 
         this.delay.delayTime.value = 0.5;
-        this.feedback.gain.value = 0.1;
-        
+        this.feedback.gain.value = 0.2;
+
         this.delay.connect(this.feedback);
         this.feedback.connect(this.delay);
         this.input.connect(this.delay)
@@ -32,17 +32,19 @@ export class DelayPlugin extends AudioPlugin {
         const container = builder.createContainer(
             builder.slider("Feedback", (value) => (this.feedback.gain.value = value), {
                 min: 0,
-                max: this.maxDelayTime,
+                max: 2,
                 value: this.feedback.gain.value,
-                defaultValue: 0,
-                step: 0.1,
+                defaultValue: 0.2,
+                step: 0.01,
+                formatter: (v) => `${(v * 100).toFixed(0)}%`,
             }),
             builder.slider("Delay", (value) => (this.delay.delayTime.value = value), {
                 min: 0,
                 max: this.maxDelayTime,
                 value: this.delay.delayTime.value,
-                defaultValue: 0,
+                defaultValue: 0.5,
                 step: 0.1,
+                formatter: (v) => `${v.toFixed(1)} sec`,
             }),
             this.mixSliderElement,
             this.inputSlider,
