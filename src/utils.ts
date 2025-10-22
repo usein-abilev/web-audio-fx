@@ -29,6 +29,19 @@ export const normalizeExpCurve = (value: number, min: number, max: number) => {
     return min * (max / min) ** value;
 }
 
+export const withBasePath = (path: string) => {
+    const { BASE_URL } = import.meta.env;
+    const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
+    const pathname = path.startsWith("/") ? path.substring(1) : path;
+    return base + pathname;
+}
+
+export const formatTime = (sec: number) => {
+    const minutes = Math.floor(sec / 60);
+    const seconds = Math.floor(sec % 60);
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export const randomId = () => {
     const timestamp = Date.now().toString(16);
     const random = Math.floor(Math.random() * 2 ** 52).toString(16);

@@ -4,6 +4,7 @@ import { Equalizer7BandPlugin } from "./plugins/eq";
 import { ReverbPlugin } from "./plugins/reverb";
 import { DelayPlugin } from "./plugins/delay";
 import { CompressorPlugin } from "./plugins/compressor";
+import { formatTime } from "./utils";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
@@ -77,6 +78,11 @@ const PLUGINS = [
         getInstance: (actx: AudioContext) => new CompressorPlugin(actx),
     },
 ];
+
+const getPlaybackSeconds = (): number => {
+    const elapsed = (state.playback ? state.audioContext.currentTime - state.playback.startedTime : 0);
+    return elapsed + state.playbackOffsetSeconds;
+}
 
 window.addEventListener("load", async () => {
     const loadSampleButton = document.getElementById("load-sample")!;
@@ -349,15 +355,22 @@ window.addEventListener("load", async () => {
         canvasContext.fillText("FPS: " + (1 / deltaTime).toFixed(0), 14, 24);
 
         if (state.currentFile) {
-            const fileText = `File ${state.currentFile.name} | ${(state.currentFile.size / 1024 / 1024).toFixed(2)} MB`;
+            const fileText = `File: ${state.currentFile.name} | ${(state.currentFile.size / 1024 / 1024).toFixed(2)} MB`;
             const fileTextWidth = canvasContext.measureText(fileText);
             canvasContext.fillStyle = "rgba(255, 255, 255, 1)"
             canvasContext.fillText(fileText, canvas.width - fileTextWidth.width - 10, 24);
         }
 
+        canvasContext.save();
+        canvasContext.fillStyle = "#fff";
+        canvasContext.textAlign = "center";
+        canvasContext.textBaseline = "middle";
+        canvasContext.fillText(formatTime(getPlaybackSeconds()), canvas.width / 2, 24);
+        canvasContext.restore();
         requestAnimationFrame(renderCanvas);
     };
     requestAnimationFrame(renderCanvas);
+
 
     const createToggleRecord = () => {
         const constraints: MediaStreamConstraints = {
@@ -391,6 +404,7 @@ window.addEventListener("load", async () => {
                         .arrayBuffer()
                         .then((buffer) => state.audioContext.decodeAudioData(buffer))
                         .then((buffer) => updateAudioBuffer(buffer))
+                        .then(() => state.currentFile = null)
                         .catch((reason) =>
                             console.error(
                                 "Unable to get an array buffer from MediaRecorder:",
