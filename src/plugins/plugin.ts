@@ -1,7 +1,10 @@
 import AudioGraphNode from "../nodes/node";
+import { disconnectAudioNodesSafe } from "../utils";
 import builder from "../utils/uibuilder";
 
 export class AudioPlugin extends AudioGraphNode {
+    public bypass = false;
+
     protected dryNode: GainNode;
     protected wetNode: GainNode;
     protected mixValue: number = 1;
@@ -13,17 +16,30 @@ export class AudioPlugin extends AudioGraphNode {
 
         this.dryNode = this.audioContext.createGain();
         this.wetNode = this.audioContext.createGain();
-        this.setMixValue(1);
 
-        this.input.connect(this.dryNode);
-        this.wetNode.connect(this.output);
-        this.dryNode.connect(this.output);
+        this.setMixValue(1);
+        this.setBypass(false);
 
         this.mixSliderElement = builder.knob("Mix", (value) => this.setMixValue(value), {
             max: 1,
             value: this.getMixValue(),
             defaultValue: 1,
         });
+    }
+
+    setBypass(value: boolean) {
+        this.bypass = value;
+        if (this.bypass) {
+            disconnectAudioNodesSafe(this.wetNode, this.output);
+            disconnectAudioNodesSafe(this.dryNode, this.output);
+            disconnectAudioNodesSafe(this.input, this.dryNode);
+            this.input.connect(this.output);
+        } else {
+            disconnectAudioNodesSafe(this.input, this.output);
+            this.input.connect(this.dryNode);
+            this.dryNode.connect(this.output);
+            this.wetNode.connect(this.output);
+        }
     }
 
     getMixValue() {

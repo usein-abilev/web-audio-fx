@@ -8,6 +8,7 @@ export class Equalizer7BandPlugin extends AudioPlugin {
     }
 
     public bands: BiquadFilterNode[];
+    private blockElement: HTMLElement;
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
@@ -25,21 +26,21 @@ export class Equalizer7BandPlugin extends AudioPlugin {
 
         this.input.connect(this.bands[0]);
         this.bands.at(-1)?.connect(this.wetNode);
-    }
 
-    render(parent: HTMLElement) {
         const options = { min: -12, max: 12, step: 0.1, defaultValue: 0 };
 
-        const children = this.bands.map((band) => {
+        this.blockElement = builder.block(this.bands.map((band) => {
             return builder.slider(
                 `${band.frequency.value}Hz`,
                 (value) => band.gain.setValueAtTime(value, this.audioContext.currentTime + 0.01),
-                { ...options, formatter: (v) => `${v.toFixed(1)} dB`, value: band.gain.value}
+                { ...options, formatter: (v) => `${v.toFixed(1)} dB`, value: band.gain.value }
             );
-        });
+        }));
+    }
 
+    render(parent: HTMLElement) {
         const container = builder.createContainer(
-            ...children,
+            this.blockElement,
             this.mixSliderElement,
             this.inputSlider,
             this.outputSlider,

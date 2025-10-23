@@ -77,3 +77,11 @@ export const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBu
     }
 };
 
+export const disconnectAudioNodesSafe = (source: AudioNode, target: AudioNode): boolean => {
+    try {
+        source.disconnect(target);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
