@@ -11,13 +11,15 @@ export enum GraphNodeType {
     Plugin = "plugin",
 }
 
-export type GraphNode = {
+type GraphNodeBase = {
     id: string;
-    type: string;
     position: { x: number; y: number };
-    instance: AudioGraphNode;
     connections: Record<string, number>;
 };
+
+export type GraphNode =
+    | GraphNodeBase & { type: GraphNodeType.Plugin; instance: AudioPlugin; }
+    | GraphNodeBase & { type: GraphNodeType.Input | GraphNodeType.Output; instance: AudioGraphNode; }
 
 export type GraphState = {
     selectedNode?: GraphNode;
@@ -64,7 +66,44 @@ export const initGraph = (config: InitGraphConfig) => {
         ],
     };
     const [inputGraphNode, outputGraphNode] = graph.nodes;
-    inputGraphNode.connections[outputGraphNode.id] = 1;
+
+    const createConnection = (source: GraphNode, target: GraphNode) => {
+        console.log("Creating new connection between", source, target);
+
+        // reconnecting removes the connection
+        if (source.connections[target.id]) {
+            source.instance.output.disconnect(target.instance.input);
+            delete source.connections[target.id]
+            config.onUpdate(graph);
+            return true;
+        }
+
+        // find circular dependencies using DFS
+        const stack: string[] = [target.id];
+        const visited = new Set<string>();
+        while (stack.length) {
+            const nodeId = stack.pop();
+            if (!nodeId) continue;
+            if (nodeId === source.id) {
+                console.warn("The connection between nodes (%s -> %s) will cause a circular dependency", source.id, target.id);
+                return false;
+            }
+            if (!visited.has(nodeId)) {
+                visited.add(nodeId);
+                const node = graph.nodes.find(node => node.id === nodeId);
+                stack.push(...Object.keys(node!.connections));
+                continue;
+            }
+        }
+
+        source.connections[target.id] = 1;
+        source.instance.output.connect(target.instance.input);
+        config.onUpdate(graph);
+
+        return true;
+    };
+
+    createConnection(inputGraphNode, outputGraphNode);
 
     const hoveredNode = {
         isConnector: false,
@@ -79,6 +118,21 @@ export const initGraph = (config: InitGraphConfig) => {
     createContextMenu(graphCanvas,
         () => !!graph.selectedNode,
         [
+            {
+                key: "bypass",
+                displayText: () => {
+                    if (graph.selectedNode?.type === GraphNodeType.Plugin) {
+                        return graph.selectedNode.instance.bypass ? "Activate node" : "Bypass node";
+                    }
+                    return "";
+                },
+                canShow: () => graph.selectedNode?.type === GraphNodeType.Plugin,
+                handler: () => {
+                    if (!graph.selectedNode) return;
+                    const plugin = graph.selectedNode.instance as AudioPlugin;
+                    plugin.setBypass(!plugin.bypass);
+                },
+            },
             {
                 key: "delete",
                 displayText: "Delete node",
@@ -122,10 +176,14 @@ export const initGraph = (config: InitGraphConfig) => {
     );
 
     const renderGraph = () => {
+        requestAnimationFrame(renderGraph);
         graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
 
         for (const node of graph.nodes) {
             const selected = graph.selectedNode?.id === node.id;
+
+            graphCtx.save();
+            graphCtx.globalAlpha = node.type === GraphNodeType.Plugin && node.instance.bypass ? 0.5 : 1;
 
             // draw node box and small dots for connectors (for input is on the left, for output is on the right
             graphCtx.beginPath();
@@ -135,6 +193,13 @@ export const initGraph = (config: InitGraphConfig) => {
             graphCtx.closePath();
             graphCtx.stroke();
             graphCtx.fill();
+
+            // draw node label
+            graphCtx.fillStyle = "#FFFFFF";
+            graphCtx.font = "14px Arial";
+            const nodeName = node.instance.name
+            graphCtx.fillText(nodeName, node.position.x + 10, node.position.y + 25);
+            graphCtx.restore();
 
             const isConnectorHovered = hoveredNode.isConnector && hoveredNode.nodeId === node.id
             if (node.type !== GraphNodeType.Input) {
@@ -165,12 +230,6 @@ export const initGraph = (config: InitGraphConfig) => {
                 );
                 graphCtx.fill();
             }
-
-            // draw node label
-            graphCtx.fillStyle = "#FFFFFF";
-            graphCtx.font = "14px Arial";
-            const nodeName = node.instance.name
-            graphCtx.fillText(nodeName, node.position.x + 10, node.position.y + 25);
 
             // draw connections
             for (const targetId in node.connections) {
@@ -209,7 +268,6 @@ export const initGraph = (config: InitGraphConfig) => {
             graphCtx.lineTo(graph.linking.mouseX, graph.linking.mouseY);
             graphCtx.stroke();
         }
-        requestAnimationFrame(renderGraph);
     };
     renderGraph();
 
@@ -330,43 +388,6 @@ export const initGraph = (config: InitGraphConfig) => {
         }
     });
 
-    const createConnection = (input: GraphNode, output: GraphNode) => {
-        console.log("Creating new connection between", input, output);
-
-        // reconnecting removes the connection
-        if (input.connections[output.id]) {
-            if (input.type === GraphNodeType.Plugin && input.instance) {
-                input.instance.output.disconnect();
-            }
-            delete input.connections[output.id]
-            config.onUpdate(graph);
-            return true;
-        }
-
-        // find circular dependencies using DFS
-        const stack: string[] = [output.id];
-        const visited = new Set<string>();
-        while (stack.length) {
-            const nodeId = stack.pop();
-            if (!nodeId) continue;
-            if (nodeId === input.id) {
-                console.warn("The connection between nodes (%s -> %s) will cause a circular dependency", input.id, output.id);
-                return false;
-            }
-            if (!visited.has(nodeId)) {
-                visited.add(nodeId);
-                const node = graph.nodes.find(node => node.id === nodeId);
-                stack.push(...Object.keys(node!.connections));
-                continue;
-            }
-        }
-
-        input.connections[output.id] = 1;
-        config.onUpdate(graph);
-
-        return true;
-    };
-
     graphCanvas.addEventListener("mouseup", (ev: any) => {
         const { offsetX, offsetY } = ev;
         if (graph.draggingAnchor && graph.selectedNode) {
@@ -405,24 +426,9 @@ export const initGraph = (config: InitGraphConfig) => {
 
     return {
         apply(source: AudioNode, destination: AudioDestinationNode) {
-            inputGraphNode.instance.output.disconnect();
+            outputGraphNode.instance.output.disconnect();
             outputGraphNode.instance.output.connect(destination);
             source.connect(inputGraphNode.instance.input);
-
-            for (const node of graph.nodes) {
-                if (node.type === GraphNodeType.Output) continue;
-                const leftNode = node.instance.output;
-                for (const childId in node.connections) {
-                    const child = graph.nodes.find(n => n.id === childId);
-                    if (!child || child.type === GraphNodeType.Input) {
-                        // invalid connection
-                        delete node.connections[childId];
-                        continue;
-                    }
-                    const rightNode = child.instance.input;
-                    leftNode.connect(rightNode);
-                }
-            }
         },
         analyze(connect: (node: AudioNode) => any) {
             connect(outputGraphNode.instance.output);

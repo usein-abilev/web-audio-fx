@@ -154,7 +154,7 @@ window.addEventListener("load", async () => {
             }
         }
 
-        return newOffset;
+        return Math.max(0, newOffset);
     }
 
     const pauseAudio = () => {
@@ -209,7 +209,7 @@ window.addEventListener("load", async () => {
         let duration: number = 0;
         if (state.selection.selected) {
             const start = state.sourceNode.loop ? state.sourceNode.loopStart : state.playbackOffsetSeconds;
-            duration = state.sourceNode.loopEnd - start;
+            duration = Math.max(0, state.sourceNode.loopEnd - start);
         }
 
         state.sourceNode.start(
