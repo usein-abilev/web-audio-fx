@@ -54,7 +54,6 @@ const state = {
 
 const KEYBOARD_BINDS = {
     PLAY: "Space",
-    RECORD: "R",
 };
 
 const PLUGINS = [
@@ -92,6 +91,8 @@ window.addEventListener("load", async () => {
     const loopCheckbox = document.getElementById("loop-playback")!;
     const recordButton = document.getElementById("record")!;
     const playButton = document.getElementById("play")!;
+    const reverseButton = document.getElementById("reverse-sample")!;
+
     const pluginSelector = document.getElementById("add-plugin-select")! as HTMLSelectElement;
 
     const canvas = document.querySelector("canvas")!;
@@ -474,6 +475,32 @@ window.addEventListener("load", async () => {
 
     playButton.addEventListener("click", togglePlayback);
 
+    reverseButton.addEventListener("click", () => {
+        if (!state.rawAudioBuffer) return;
+
+        // stop processing before reversing sample
+        pauseAudio();
+
+        // mutating original audioBuffer by overriding all channel data
+        const buffer = state.rawAudioBuffer;
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const channelData = buffer.getChannelData(channel);
+            const start = state.selection.selected ? state.selection.start : 0;
+            const end = state.selection.selected ? state.selection.end : channelData.length;
+            const mid = (end - start) / 2;
+
+            for (let i = 0; i < mid; i++) {
+                const a = start + i;
+                const b = end - i - 1;
+                const temp = channelData[a];
+                channelData[a] = channelData[b];
+                channelData[b] = temp;
+            }
+        }
+
+        renderedSampleCanvas = null;
+    });
+
     window.addEventListener("keydown", (event) => {
         if (event.code === KEYBOARD_BINDS.PLAY) {
             event.preventDefault();
@@ -499,7 +526,9 @@ window.addEventListener("load", async () => {
         const isCanvas = event.target && event.target instanceof HTMLCanvasElement;
         const mouseX = isCanvas ? event.offsetX : cursorOffsetX;
         if (state.rawAudioBuffer && state.selection.selecting) {
-            state.selection.end = positionToSampleIndex(mouseX);
+            const end = positionToSampleIndex(mouseX);
+            state.selection.end = Math.max(state.selection.start, end);
+            state.selection.start = Math.min(state.selection.start, end);
             state.selection.selecting = false;
             state.selection.selected = state.selection.start !== state.selection.end;
             console.log("Selection event on mouseup:", state.selection);
