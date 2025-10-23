@@ -1,4 +1,4 @@
-import { createPluginUI } from "../utils";
+import builder from "../utils/uibuilder";
 import { AudioPlugin } from "./plugin";
 
 export class Equalizer7BandPlugin extends AudioPlugin {
@@ -29,7 +29,6 @@ export class Equalizer7BandPlugin extends AudioPlugin {
 
     render(parent: HTMLElement) {
         const options = { min: -12, max: 12, step: 0.1, defaultValue: 0 };
-        const builder = createPluginUI();
 
         const children = this.bands.map((band) => {
             return builder.slider(

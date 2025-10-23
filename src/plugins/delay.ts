@@ -1,5 +1,4 @@
-
-import { createPluginUI } from "../utils";
+import builder from "../utils/uibuilder";
 import { AudioPlugin } from "./plugin";
 
 export class DelayPlugin extends AudioPlugin {
@@ -28,7 +27,6 @@ export class DelayPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        const builder = createPluginUI();
         const container = builder.createContainer(
             builder.slider("Feedback", (value) => (this.feedback.gain.value = value), {
                 min: 0,

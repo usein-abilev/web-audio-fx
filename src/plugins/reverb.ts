@@ -1,5 +1,6 @@
+import builder from "../utils/uibuilder";
+import { fetchAudioAsArrayBuffer, withBasePath } from "../utils";
 import { AudioPlugin } from "./plugin";
-import { createPluginUI, fetchAudioAsArrayBuffer, withBasePath } from "../utils";
 
 const IMPULSE_RESPONSES = [
     {
@@ -36,7 +37,6 @@ export class ReverbPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        const builder = createPluginUI();
         const typeOptions = IMPULSE_RESPONSES.map((ir) => ({
             value: ir.path,
             displayText: ir.title,

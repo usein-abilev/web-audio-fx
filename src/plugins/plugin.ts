@@ -1,5 +1,5 @@
 import AudioGraphNode from "../nodes/node";
-import { createPluginUI } from "../utils";
+import builder from "../utils/uibuilder";
 
 export class AudioPlugin extends AudioGraphNode {
     protected dryNode: GainNode;
@@ -19,7 +19,7 @@ export class AudioPlugin extends AudioGraphNode {
         this.wetNode.connect(this.output);
         this.dryNode.connect(this.output);
 
-        this.mixSliderElement = createPluginUI().knob("Mix", (value) => this.setMixValue(value), {
+        this.mixSliderElement = builder.knob("Mix", (value) => this.setMixValue(value), {
             max: 1,
             value: this.getMixValue(),
             defaultValue: 1,

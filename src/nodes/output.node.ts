@@ -1,4 +1,4 @@
-import { createPluginUI } from "../utils";
+import builder from "../utils/uibuilder";
 import AudioGraphNode from "./node"
 
 export class OutputGraphNode extends AudioGraphNode {
@@ -13,7 +13,6 @@ export class OutputGraphNode extends AudioGraphNode {
 
     render(parent: HTMLElement) {
         parent.innerHTML = "";
-        const builder = createPluginUI();
 
         const container = builder.createContainer(
             this.inputSlider,

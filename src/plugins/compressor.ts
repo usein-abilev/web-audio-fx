@@ -1,4 +1,5 @@
-import { createPluginUI, normalizeExpCurve, normalizeLinear, normalizeLog } from "../utils";
+import builder from "../utils/uibuilder";
+import { normalizeExpCurve, normalizeLinear, normalizeLog } from "../utils";
 import { AudioPlugin } from "./plugin";
 
 export class CompressorPlugin extends AudioPlugin {
@@ -16,8 +17,6 @@ export class CompressorPlugin extends AudioPlugin {
 
         this.input.connect(this.compressor)
         this.compressor.connect(this.wetNode);
-
-        const builder = createPluginUI();
 
         const formatDb = (db: number) => `${db.toFixed(1)} dB`;
         const formatMs = (ms: number) => `${(ms * 1000).toFixed(1)} ms`;
@@ -51,7 +50,6 @@ export class CompressorPlugin extends AudioPlugin {
     }
 
     render(parent: HTMLElement) {
-        const builder = createPluginUI();
         const container = builder.createContainer(
             builder.splitterHorizontal(),
             this.blockElement,

@@ -1,4 +1,4 @@
-import { createPluginUI } from "../utils";
+import builder from "../utils/uibuilder";
 import AudioGraphNode from "./node";
 
 export class InputGraphNode extends AudioGraphNode {
@@ -22,7 +22,7 @@ export class InputGraphNode extends AudioGraphNode {
         this.input.connect(this.stereoPanner);
         this.stereoPanner.connect(this.output);
 
-        this.panKnob = this.builder.knob(
+        this.panKnob = builder.knob(
             "Pan",
             (value: number) => {
                 this.stereoPanner.pan.setValueAtTime(value * 2 - 1, this.audioContext.currentTime),
@@ -58,7 +58,6 @@ export class InputGraphNode extends AudioGraphNode {
 
     render(parent: HTMLElement) {
         parent.innerHTML = "";
-        const builder = createPluginUI();
 
         const container = builder.createContainer(
             builder.checkbox("Mono: ", (value: boolean) => this.setMono(value), { defaultValue: this.mono }),

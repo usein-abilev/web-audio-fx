@@ -1,10 +1,10 @@
-import { createPluginUI, decibelToLinear, linearToDecibel } from "../utils";
+import builder from "../utils/uibuilder"
+import { decibelToLinear, linearToDecibel } from "../utils";
 
 export default abstract class AudioGraphNode {
     public input: GainNode;
     public output: GainNode;
 
-    protected builder = createPluginUI();
     protected inputSlider: HTMLElement;
     protected outputSlider: HTMLElement;
 
@@ -26,12 +26,12 @@ export default abstract class AudioGraphNode {
             gainNode.gain.setValueAtTime(percent, this.audioContext.currentTime);
         };
 
-        this.inputSlider = this.builder.knob(
+        this.inputSlider = builder.knob(
             "Input Gain",
             (v) => setGainDecibels(this.input, v),
             knobOptions
         );
-        this.outputSlider = this.builder.knob(
+        this.outputSlider = builder.knob(
             "Output Gain",
             (v) => setGainDecibels(this.output, v),
             knobOptions
