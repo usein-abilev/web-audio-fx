@@ -95,7 +95,8 @@ window.addEventListener("load", async () => {
 
     const pluginSelector = document.getElementById("add-plugin-select")! as HTMLSelectElement;
 
-    const canvas = document.querySelector("canvas")!;
+    const initPlaceholderElement = document.getElementById("init-placeholder")!;
+    const canvas = document.querySelector("canvas#audio-sample")! as HTMLCanvasElement;
     const canvasContext = canvas.getContext("2d")!;
 
     const volumeMeter = createVolumeMeter(state.audioContext);
@@ -225,6 +226,7 @@ window.addEventListener("load", async () => {
     };
 
     const updateAudioBuffer = (buffer: AudioBuffer) => {
+        initPlaceholderElement.style.display = "none";
         pauseAudio();
         sampleScale = 1;
         scaleCursorOffsetX = 0;
@@ -272,17 +274,15 @@ window.addEventListener("load", async () => {
 
     let prevTimestamp = 0;
     const renderCanvas = (timestamp: number) => {
-        if (!prevTimestamp) {
+        requestAnimationFrame(renderCanvas);
+
+        if (!prevTimestamp || !state.rawAudioBuffer) {
             prevTimestamp = timestamp;
-            return requestAnimationFrame(renderCanvas);
+            return;
         }
 
         const deltaTime = (timestamp - prevTimestamp) / 1000;
         prevTimestamp = timestamp;
-
-        if (!state.rawAudioBuffer) {
-            return requestAnimationFrame(renderCanvas);
-        }
 
         const waveform = state.rawAudioBuffer!;
 
@@ -371,7 +371,6 @@ window.addEventListener("load", async () => {
         canvasContext.textBaseline = "middle";
         canvasContext.fillText(formatTime(getPlaybackSeconds()), canvas.width / 2, 24);
         canvasContext.restore();
-        requestAnimationFrame(renderCanvas);
     };
     requestAnimationFrame(renderCanvas);
 
