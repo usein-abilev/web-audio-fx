@@ -5,24 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Audio FX</title>
-  <script type="module" crossorigin src="/web-audio-fx/assets/index-B6nhzJ1S.js"></script>
-  <link rel="stylesheet" crossorigin href="/web-audio-fx/assets/index-Cbfn5laQ.css">
+  <script type="module" crossorigin src="/web-audio-fx/assets/index-Br5JnWKv.js"></script>
+  <link rel="stylesheet" crossorigin href="/web-audio-fx/assets/index-BL6glSEL.css">
 </head>
 
 <body>
     <div class="wrapper">
         <div class="header">
-            <canvas id="audio-sample"></canvas>
+            <div class="canvas-sample">
+                <canvas id="audio-sample"></canvas>
+                <div id="init-placeholder">
+                    <h2>Click "Load Sample" to upload your sample file or click "Record" to record your voice<h2>
+                </div>
+            </div>
             <canvas id="audio-volume-meter"></canvas>
         </div>
-        <div class="record-controls">
-            <button id="load-sample" class="primary-button">Load Sample</button>
-            <input id="sample-file-input" type="file" accept="audio/*" style="display: none" />
-            <button id="record" class="primary-button">Record</button>
-            <button id="play" class="primary-button">Play (Space)</button>
-            <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1"
-                    aria-disabled="true" /></label>
-            <hr>
+        <div class="sample-controls">
+            <div>
+                <button id="load-sample" class="primary-button">Load Sample</button>
+                <input id="sample-file-input" type="file" accept="audio/*" style="display: none" />
+                <button id="record" class="primary-button">Record</button>
+                <button id="play" class="primary-button">Play (Space)</button>
+            </div>
+            <div class="playback-controls">
+                <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1"
+                                                                                                       aria-disabled="true" /></label>
+                <button id="reverse-sample" class="secondary-button">Reverse</button>
+            </div>
         </div>
 
         <!-- <div class="analyser-plugin"> -->
