@@ -10,6 +10,41 @@
 
 <body>
     <div class="wrapper">
+        <div class="daw-header">
+            <div id="bpm">120 BPM</div>
+            <div id="metronome">
+                <label for="metronome-input">Metronome</label>
+                <input type="checkbox" id="metronome-input" />
+            </div> 
+        </div>
+        <div class="daw-content">
+            <div class="flex-horizontal">
+                <div id="browser">
+                    <div class="browser-header">Browser</div>
+                    <div class="browser-items">
+                        <div class="browser-item">
+                            <span class="browser-item-name">Kick</span> 
+                        </div>
+                        <div class="browser-item">
+                            <span class="browser-item-name">Snare</span> 
+                        </div>
+                        <div class="browser-item">
+                            <span class="browser-item-name">HH</span> 
+                        </div>
+                        <div class="browser-item">
+                            <span class="browser-item-name">OpenHat-1</span> 
+                        </div>
+                        <div class="browser-item">
+                            <span class="browser-item-name">Voice</span> 
+                        </div>
+                    </div>
+                </div>
+                <div class="timeline-container">
+                    <canvas id="timeline"></canvas>
+                </div>
+            </div>
+        </div>
+        <hr/>
         <div class="header">
             <div class="canvas-sample">
                 <canvas id="audio-sample"></canvas>
@@ -41,6 +76,8 @@
             <div class="block-header">
                 <h2>Audio Processing Graph</h2>
                 <div class="graph-controls">
+                    <select id="channel-select">
+                    </select>
                     <select id="add-plugin-select">
                         <option id="select-placeholder" value="" selected disabled>Add plugin</option>
                     </select>

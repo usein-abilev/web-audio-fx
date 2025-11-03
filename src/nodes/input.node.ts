@@ -9,12 +9,18 @@ export class InputGraphNode extends AudioGraphNode {
 
     private panKnob: HTMLElement;
 
+    private aliasName: string = "Input Node";
+
     public get name() {
-        return "Input Node";
+        return this.aliasName;
     }
 
-    constructor(audioContext: AudioContext) {
+    constructor(audioContext: AudioContext, aliasName?: string) {
         super(audioContext);
+
+        if (aliasName) {
+            this.aliasName = aliasName;
+        }
 
         this.channelMerger = audioContext.createChannelMerger();
         this.stereoPanner = audioContext.createStereoPanner();
