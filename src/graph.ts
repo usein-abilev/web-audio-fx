@@ -4,34 +4,26 @@ import type AudioGraphNode from "./nodes/node";
 import { InputGraphNode } from "./nodes/input.node";
 import { OutputGraphNode } from "./nodes/output.node";
 import { createContextMenu } from "./contextmenu";
+import PLUGINS from "./plugins";
 
 export enum GraphNodeType {
     Input = "input",
     Output = "output",
     Plugin = "plugin",
+    Bus = "bus",
 }
+
+type Position2D = { x: number; y: number; };
 
 type GraphNodeBase = {
     id: string;
-    position: { x: number; y: number };
+    position: Position2D;
     connections: Record<string, number>;
 };
 
 export type GraphNode =
     | GraphNodeBase & { type: GraphNodeType.Plugin; instance: AudioPlugin; }
-    | GraphNodeBase & { type: GraphNodeType.Input | GraphNodeType.Output; instance: AudioGraphNode; }
-
-export type GraphState = {
-    selectedNode?: GraphNode;
-    draggingAnchor?: { x: number; y: number };
-    linking?: {
-        nodeSourceId: string;
-        isSourceInput: boolean;
-        mouseX: number;
-        mouseY: number;
-    };
-    nodes: GraphNode[];
-}
+    | GraphNodeBase & { type: GraphNodeType.Input | GraphNodeType.Output | GraphNodeType.Bus; instance: AudioGraphNode; }
 
 const GRAPH_CONFIG = {
     NODE_WIDTH: 150,
@@ -43,38 +35,125 @@ const GRAPH_CONFIG = {
 
 type InitGraphConfig = {
     audioContext: AudioContext,
-    onUpdate: (graph: GraphState) => any;
+    onUpdate: (graph: AudioProcessingGraph) => any;
 }
 
-export const initGraph = (config: InitGraphConfig) => {
-    const graph: GraphState = {
-        nodes: [
-            {
-                type: GraphNodeType.Input,
-                id: randomId(),
-                instance: new InputGraphNode(config.audioContext),
-                position: { x: 0, y: 0 },
-                connections: {}
-            },
-            {
-                type: GraphNodeType.Output,
-                id: randomId(),
-                instance: new OutputGraphNode(config.audioContext),
-                position: { x: 0, y: 0 },
-                connections: {}
-            },
-        ],
-    };
-    const [inputGraphNode, outputGraphNode] = graph.nodes;
+type AudioProcessingGraphConfig = {
+    audioContext: AudioContext,
+    graphCanvas: HTMLCanvasElement;
+    onUpdate: (graph: AudioProcessingGraph) => any;
+    onNewInputNode: (inputNode: GraphNode) => any;
+};
 
-    const createConnection = (source: GraphNode, target: GraphNode) => {
+export class AudioProcessingGraph {
+    public nodes: GraphNode[];
+    public outputGraphNode: GraphNode;
+    public masterGraphNode: GraphNode;
+
+    // TODO: UI related, move to separate module/class/function
+    public draggingAnchor?: Position2D;
+    public selectedNode?: GraphNode;
+    public linking?: {
+        nodeSourceId: string;
+        isSourceInput: boolean;
+        mouseX: number;
+        mouseY: number;
+    };
+
+    private nextInputNodePosition: Position2D = { x: 50, y: 100 };
+    private focusedNodeChain?: GraphNode;
+
+    constructor(private config: AudioProcessingGraphConfig) {
+        this.masterGraphNode = {
+            id: randomId(),
+            type: GraphNodeType.Bus,
+            instance: new InputGraphNode(config.audioContext, "Master Node"),
+            position: { x: config.graphCanvas.width / 2, y: config.graphCanvas.height / 2 },
+            connections: {},
+        };
+        this.outputGraphNode = {
+            id: randomId(),
+            type: GraphNodeType.Output,
+            instance: new OutputGraphNode(config.audioContext),
+            position: { x: config.graphCanvas.width - GRAPH_CONFIG.NODE_WIDTH - 50, y: config.graphCanvas.height / 2 },
+            connections: {}
+        };
+
+        this.nodes = [
+            this.masterGraphNode,
+            this.outputGraphNode,
+        ];
+
+        this.createConnection(this.masterGraphNode, this.outputGraphNode);
+        this.outputGraphNode.instance.output.connect(config.audioContext.destination);
+    }
+
+    /**
+        * Focuses on specific node chain by hidding other nodes which isn't related to the node
+    */
+    focusNodeChain(node: GraphNode) {
+        this.focusedNodeChain = node;
+        // TODO: Hide unfocused nodes using BFS/DFS
+    }
+
+    getBuses() {
+        return this.nodes.filter(node => node.type === GraphNodeType.Bus);
+    }
+
+    addInput(instance: InputGraphNode, connectToId?: string) {
+        const node = {
+            id: randomId(),
+            type: GraphNodeType.Input,
+            instance: instance as any,
+            position: this.nextInputNodePosition,
+            connections: {},
+        };
+        this.nextInputNodePosition = {
+            x: this.nextInputNodePosition.x,
+            y: this.nextInputNodePosition.y + GRAPH_CONFIG.NODE_HEIGHT + 10,
+        }
+        this.nodes.push(node);
+        this.config.onNewInputNode(node);
+
+        if (typeof connectToId === "string") {
+            const target = this.nodes.find(node => node.id === connectToId);
+            if (target) {
+                this.createConnection(node, target);
+            } else {
+                console.warn("Unable to create connection between nodes", { instance, connectToId });
+            }
+        }
+
+        return true;
+    }
+
+    addPlugin(plugin: AudioPlugin) {
+        const node = {
+            id: randomId(),
+            type: GraphNodeType.Plugin,
+            position: {
+                x: this.config.graphCanvas.width / 2,
+                y: this.config.graphCanvas.height / 2,
+            },
+            instance: plugin,
+            connections: {},
+        };
+        this.nodes.push(node);
+        return true;
+    }
+
+    analyze(connect: (node: AudioNode) => any) {
+        connect(this.outputGraphNode.instance.output);
+    }
+
+    createConnection(source: GraphNode, target: GraphNode) {
         console.log("Creating new connection between", source, target);
 
         // reconnecting removes the connection
         if (source.connections[target.id]) {
             source.instance.output.disconnect(target.instance.input);
             delete source.connections[target.id]
-            config.onUpdate(graph);
+            this.config.onUpdate(this);
             return true;
         }
 
@@ -90,7 +169,7 @@ export const initGraph = (config: InitGraphConfig) => {
             }
             if (!visited.has(nodeId)) {
                 visited.add(nodeId);
-                const node = graph.nodes.find(node => node.id === nodeId);
+                const node = this.nodes.find(node => node.id === nodeId);
                 stack.push(...Object.keys(node!.connections));
                 continue;
             }
@@ -98,22 +177,81 @@ export const initGraph = (config: InitGraphConfig) => {
 
         source.connections[target.id] = 1;
         source.instance.output.connect(target.instance.input);
-        config.onUpdate(graph);
+        this.config.onUpdate(this);
 
         return true;
-    };
+    }
+}
 
-    createConnection(inputGraphNode, outputGraphNode);
+export const initGraph = (config: InitGraphConfig) => {
+    const pluginWindowEl = document.getElementById("audio-plugin")!;
+    const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
+    const graphCtx = graphCanvas!.getContext("2d")!;
+
+    const onResize = () => {
+        graphCanvas.width = document.body.clientWidth - 20;
+        graphCanvas.height = 450;
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+
+    const graph = new AudioProcessingGraph({
+        audioContext: config.audioContext,
+        onUpdate: config.onUpdate,
+        graphCanvas,
+        onNewInputNode: () => updateChannelSelector(),
+    });
+
+    const getChannels = () => {
+        return graph.nodes.filter((node) => node.type === GraphNodeType.Input || node.type === GraphNodeType.Bus);
+    }
+
+    const channelSelector = document.getElementById("channel-select")! as HTMLSelectElement;
+    channelSelector.addEventListener("change", (ev: any) => {
+        const channels = getChannels();
+        const channel = channels.find((p) => p.id === ev.target?.value);
+        if (!channel) return;
+        graph.focusNodeChain(channel);
+        console.log("Selected channel:", channel);
+    });
+
+    const updateChannelSelector = () => {
+        const channels = getChannels();
+
+        channelSelector.innerHTML = "";
+        for (const channel of channels) {
+            const option = document.createElement("option");
+            option.value = channel.id;
+            option.innerText = channel.instance.name;
+            channelSelector.add(option);
+        }
+    }
+
+    // Initialize Plugin List Selector
+    (() => {
+        const pluginSelector = document.getElementById("add-plugin-select")! as HTMLSelectElement;
+
+        for (const plugin of PLUGINS) {
+            const option = document.createElement("option");
+            option.value = plugin.id;
+            option.innerText = plugin.name;
+            pluginSelector.add(option);
+        }
+
+        pluginSelector.addEventListener("change", (ev: any) => {
+            const plugin = PLUGINS.find((p) => p.id === ev.target?.value);
+            if (!plugin) return;
+            console.log("Adding plugin:", plugin);
+            graph.addPlugin(plugin.getInstance(config.audioContext));
+            pluginSelector.value = "";
+        });
+    })();
 
     const hoveredNode = {
         isConnector: false,
         isInput: false,
         nodeId: "",
     };
-
-    const pluginWindowEl = document.getElementById("audio-plugin")!;
-    const graphCanvas = document.getElementById("graph")! as HTMLCanvasElement;
-    const graphCtx = graphCanvas!.getContext("2d")!;
 
     createContextMenu(graphCanvas,
         () => !!graph.selectedNode,
@@ -402,50 +540,13 @@ export const initGraph = (config: InitGraphConfig) => {
 
             if (insideConnector && nodeSource && insideConnector.input !== graph.linking.isSourceInput) {
                 if (!isSourceInput) {
-                    createConnection(nodeSource, insideConnector.node);
+                    graph.createConnection(nodeSource, insideConnector.node);
                 } else {
-                    createConnection(insideConnector.node, nodeSource);
+                    graph.createConnection(insideConnector.node, nodeSource);
                 }
             }
             delete graph.linking;
         }
     });
-
-    const onResize = () => {
-        graphCanvas.width = document.body.clientWidth - 20;
-        graphCanvas.height = 350;
-
-        inputGraphNode.position.x = 50;
-        inputGraphNode.position.y = graphCanvas.height / 2;
-
-        outputGraphNode.position.x = graphCanvas.width - 200;
-        outputGraphNode.position.y = graphCanvas.height / 2;
-    };
-    onResize();
-    window.addEventListener("resize", onResize);
-
-    return {
-        apply(source: AudioNode, destination: AudioDestinationNode) {
-            outputGraphNode.instance.output.disconnect();
-            outputGraphNode.instance.output.connect(destination);
-            source.connect(inputGraphNode.instance.input);
-        },
-        analyze(connect: (node: AudioNode) => any) {
-            connect(outputGraphNode.instance.output);
-        },
-        addPlugin(plugin: AudioPlugin) {
-            const newNode: GraphNode = {
-                id: randomId(),
-                type: GraphNodeType.Plugin,
-                position: {
-                    x: graphCanvas.width / 2,
-                    y: graphCanvas.height / 2,
-                },
-                instance: plugin,
-                connections: {},
-            };
-            graph.nodes.push(newNode);
-            return true;
-        },
-    }
+    return graph;
 }

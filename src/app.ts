@@ -1,11 +1,8 @@
 import { validateAudioFile } from "./utils/file";
 import { createVolumeMeter } from "./meter"
 import { initGraph } from "./graph"
-import { Equalizer7BandPlugin } from "./plugins/eq";
-import { ReverbPlugin } from "./plugins/reverb";
-import { DelayPlugin } from "./plugins/delay";
-import { CompressorPlugin } from "./plugins/compressor";
 import { formatTime } from "./utils";
+import { initTimeline } from "./timeline";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
@@ -56,29 +53,6 @@ const KEYBOARD_BINDS = {
     PLAY: "Space",
 };
 
-const PLUGINS = [
-    {
-        id: "reverb",
-        name: "Reverb",
-        getInstance: (actx: AudioContext) => new ReverbPlugin(actx),
-    },
-    {
-        id: "equalizer",
-        name: "EQ (7 Band)",
-        getInstance: (actx: AudioContext) => new Equalizer7BandPlugin(actx),
-    },
-    {
-        id: "delay",
-        name: "Delay",
-        getInstance: (actx: AudioContext) => new DelayPlugin(actx),
-    },
-    {
-        id: "compressor",
-        name: "Compressor",
-        getInstance: (actx: AudioContext) => new CompressorPlugin(actx),
-    },
-];
-
 const getPlaybackSeconds = (): number => {
     const elapsed = (state.playback ? state.audioContext.currentTime - state.playback.startedTime : 0);
     return elapsed + state.playbackOffsetSeconds;
@@ -93,9 +67,8 @@ window.addEventListener("load", async () => {
     const playButton = document.getElementById("play")!;
     const reverseButton = document.getElementById("reverse-sample")!;
 
-    const pluginSelector = document.getElementById("add-plugin-select")! as HTMLSelectElement;
-
     const initPlaceholderElement = document.getElementById("init-placeholder")!;
+
     const canvas = document.querySelector("canvas#audio-sample")! as HTMLCanvasElement;
     const canvasContext = canvas.getContext("2d")!;
 
@@ -106,23 +79,7 @@ window.addEventListener("load", async () => {
         onUpdate: (graph) => console.log("Audio Graph Updated!", graph),
     });
 
-    // Initialize Plugin List Selector
-    (() => {
-        for (const plugin of PLUGINS) {
-            const option = document.createElement("option");
-            option.value = plugin.id;
-            option.innerText = plugin.name;
-            pluginSelector.add(option);
-        }
-
-        pluginSelector.addEventListener("change", (ev: any) => {
-            const plugin = PLUGINS.find((p) => p.id === ev.target?.value);
-            if (!plugin) return;
-            console.log("Adding plugin:", plugin);
-            graph.addPlugin(plugin.getInstance(state.audioContext));
-            pluginSelector.value = "";
-        });
-    })();
+    initTimeline(state.audioContext, graph);
 
     let cursorOffsetX = 0; // set on mouse move event
     let scaleCursorOffsetX = 0; // set on mouse wheel event
@@ -193,7 +150,7 @@ window.addEventListener("load", async () => {
         state.sourceNode.loopStart = Math.min(loopStart, loopEnd);
         state.sourceNode.loopEnd = Math.max(loopStart, loopEnd);
 
-        graph.apply(state.sourceNode, state.audioContext.destination);
+        // graph.apply(state.sourceNode, state.audioContext.destination);
         graph.analyze(volumeMeter.connect);
 
         state.sourceNode.onended = (event) => {
@@ -275,7 +232,6 @@ window.addEventListener("load", async () => {
     let prevTimestamp = 0;
     const renderCanvas = (timestamp: number) => {
         requestAnimationFrame(renderCanvas);
-
         if (!prevTimestamp || !state.rawAudioBuffer) {
             prevTimestamp = timestamp;
             return;
