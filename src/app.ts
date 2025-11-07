@@ -3,6 +3,7 @@ import { createVolumeMeter } from "./meter"
 import { initGraph } from "./graph"
 import { formatTime } from "./utils";
 import { initTimeline } from "./timeline";
+import { FloatingWindowType, getState, initState, watchState } from "./state";
 
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
@@ -58,7 +59,118 @@ const getPlaybackSeconds = (): number => {
     return elapsed + state.playbackOffsetSeconds;
 }
 
+const initStateUI = () => {
+    const bpmInput = document.getElementById("bpm-input")! as HTMLInputElement;
+    const playButton = document.getElementById("playback-play")! as HTMLButtonElement;
+    const metronomeButton = document.getElementById("metronome-toggle")! as HTMLButtonElement;
+    const recordButton = document.getElementById("record-toggle")! as HTMLButtonElement;
+
+    const state = getState()
+
+    bpmInput.addEventListener("change", () => {
+        state.bpm = Number(bpmInput.value);
+    });
+    playButton.addEventListener("click", () => {
+        state.playing = !state.playing;
+    });
+    metronomeButton.addEventListener("click", () => {
+        state.metronome = !state.metronome;
+    });
+    recordButton.addEventListener("click", () => {
+        state.recording = !state.recording;
+    });
+
+    watchState("bpm", (value) => {
+        if (!value) return;
+        bpmInput.value = value.toString();
+    });
+
+    watchState("playing", (value) => {
+        const playSvg = document.getElementById("play-svg")!;
+        const pauseSvg = document.getElementById("pause-svg")!;
+        if (value) {
+            playButton.classList.add("active");
+            pauseSvg.classList.remove("hidden");
+            playSvg.classList.add("hidden");
+        } else {
+            pauseSvg.classList.add("hidden");
+            playSvg.classList.remove("hidden");
+            playButton.classList.remove("active");
+        }
+    });
+
+    watchState("recording", (value) => {
+        if (value) {
+            recordButton.classList.add("active");
+        } else {
+            recordButton.classList.remove("active");
+        }
+    });
+
+    watchState("metronome", (value) => {
+        if (value) {
+            metronomeButton.classList.add("active");
+        } else {
+            metronomeButton.classList.remove("active");
+        }
+    });
+
+    const tabListElement = document.querySelector(".tabs")!;
+    const floatingWindows = document.querySelectorAll(".floating-window");
+
+    const floatingHideButtons = document.querySelectorAll(".floating-window .hide-button");
+    floatingHideButtons.forEach(hideButton => {
+        hideButton.addEventListener("click", (event) => {
+            state.activeFloatingWindow = undefined;
+        });
+    });
+
+    tabListElement.addEventListener("click", (event) => {
+        const target = event.target as HTMLDivElement;
+        if (!target.classList.contains("tab-toggle")) {
+            return;
+        }
+        const floatingWindowId = target.dataset.id as string;
+        state.activeFloatingWindow = floatingWindowId as unknown as FloatingWindowType;
+    });
+
+    watchState("activeFloatingWindow", (value) => {
+        console.log("Active floating window:", value);
+
+        const activeTab = document.querySelector(".tabs .tab-toggle.active")
+        if (activeTab) {
+            activeTab.classList.remove("active")
+        }
+
+
+        floatingWindows.forEach((item) => {
+            if (item.id !== value) {
+                item.classList.add("hidden");
+                return;
+            }
+            item.classList.remove("hidden");
+        });
+        if (!value) return;
+        const tabToActivate = document.querySelector(`.tab-toggle[data-id="${value}"`);
+        if (!tabToActivate) {
+            throw new Error(`Unexpected error. Element with .tab-toggle and data-id = ${value} not found`);
+        }
+        tabToActivate.classList.add("active");
+    });
+}
+
 window.addEventListener("load", async () => {
+    initState();
+    initStateUI();
+
+    const graph = initGraph({
+        audioContext: state.audioContext,
+        onUpdate: (graph) => console.log("Audio Graph Updated!", graph),
+    });
+
+    initTimeline(state.audioContext, graph);
+
+    return;
     const loadSampleButton = document.getElementById("load-sample")!;
     const sampleFileInput = document.getElementById("sample-file-input")! as HTMLInputElement;
 
@@ -69,17 +181,10 @@ window.addEventListener("load", async () => {
 
     const initPlaceholderElement = document.getElementById("init-placeholder")!;
 
-    const canvas = document.querySelector("canvas#audio-sample")! as HTMLCanvasElement;
+    const canvas = document.querySelector("canvas#sample-viewer")! as HTMLCanvasElement;
     const canvasContext = canvas.getContext("2d")!;
 
     const volumeMeter = createVolumeMeter(state.audioContext);
-
-    const graph = initGraph({
-        audioContext: state.audioContext,
-        onUpdate: (graph) => console.log("Audio Graph Updated!", graph),
-    });
-
-    initTimeline(state.audioContext, graph);
 
     let cursorOffsetX = 0; // set on mouse move event
     let scaleCursorOffsetX = 0; // set on mouse wheel event
@@ -425,7 +530,7 @@ window.addEventListener("load", async () => {
         } else {
             pauseAudio();
         }
-        playButton.innerText = (state.playback ? "Pause" : "Play") + ` (${KEYBOARD_BINDS.PLAY})`;
+        playButton.innerText = (state.playback ? "Pause" : "Play");
     };
 
     playButton.addEventListener("click", togglePlayback);
@@ -457,10 +562,10 @@ window.addEventListener("load", async () => {
     });
 
     window.addEventListener("keydown", (event) => {
-        if (event.code === KEYBOARD_BINDS.PLAY) {
-            event.preventDefault();
-            return togglePlayback();
-        }
+        // if (event.code === KEYBOARD_BINDS.PLAY) {
+        //     event.preventDefault();
+        //     return togglePlayback();
+        // }
     });
 
     canvas.addEventListener("mousemove", (event) => {

@@ -189,8 +189,10 @@ export const initGraph = (config: InitGraphConfig) => {
     const graphCtx = graphCanvas!.getContext("2d")!;
 
     const onResize = () => {
-        graphCanvas.width = document.body.clientWidth - 20;
-        graphCanvas.height = 450;
+        const parent = (graphCanvas.parentNode as HTMLDivElement)
+        const rect = parent.getBoundingClientRect();
+        graphCanvas.width = rect.width;
+        graphCanvas.height = rect.height;
     };
     onResize();
     window.addEventListener("resize", onResize);

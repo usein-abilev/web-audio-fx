@@ -1,94 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Audio FX</title>
-    <link rel="stylesheet" href="/src/style.css">
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Web Audio FX</title>
+        <link rel="stylesheet" href="/src/styles/main.scss">
+    </head>
 
-<body>
-    <div class="wrapper">
-        <div class="daw-header">
-            <div id="bpm">120 BPM</div>
-            <div id="metronome">
-                <label for="metronome-input">Metronome</label>
-                <input type="checkbox" id="metronome-input" />
-            </div> 
-        </div>
-        <div class="daw-content">
-            <div class="flex-horizontal">
-                <div id="browser">
-                    <div class="browser-header">Browser</div>
-                    <div class="browser-items">
-                        <div class="browser-item">
-                            <span class="browser-item-name">Kick</span> 
-                        </div>
-                        <div class="browser-item">
-                            <span class="browser-item-name">Snare</span> 
-                        </div>
-                        <div class="browser-item">
-                            <span class="browser-item-name">HH</span> 
-                        </div>
-                        <div class="browser-item">
-                            <span class="browser-item-name">OpenHat-1</span> 
-                        </div>
-                        <div class="browser-item">
-                            <span class="browser-item-name">Voice</span> 
-                        </div>
+    <body class="theme-dark">
+        <header>
+            <div class="header-items">
+                <input id="bpm-input" type="number" value="120" />
+                <button class="svg-button" id="playback-play">
+                    <div id="play-svg">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 5v14l11-7L8 5z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
                     </div>
+                    <div id="pause-svg" class="hidden">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <rect x="6" y="5" width="4" height="14" fill="currentColor" rx="1"/>
+                            <rect x="14" y="5" width="4" height="14" fill="currentColor" rx="1"/>
+                        </svg>
+                    </div>
+                </button>
+                <button class="svg-button" id="playback-reset">
+                    <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>
+                    </svg>
+                </button>
+                <button class="svg-button" id="record-toggle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle><circle cx="12" cy="12" r="5" fill="currentColor"></circle></svg>
+                </button>
+                <button id="metronome-toggle">
+                    <span>Metronome</span>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <aside id="browser-pane">
+                <h2>Browser</h2>
+                <div class="browser-items">
+                    <button class="browser-item">metronome</button>
+                    <button class="browser-item">kick-1</button>
+                    <button class="browser-item">clap-1</button>
+                    <button class="browser-item">HH3</button>
+                    <button class="browser-item">loop</button>
+                    <button class="browser-item">guitar</button>
                 </div>
-                <div class="timeline-container">
+            </aside>
+
+            <section>
+                <div id="timeline-pane">
                     <canvas id="timeline"></canvas>
                 </div>
-            </div>
-        </div>
-        <hr/>
-        <div class="header">
-            <div class="canvas-sample">
-                <canvas id="audio-sample"></canvas>
-                <div id="init-placeholder">
-                    <h2>Click "Load Sample" to upload your sample file or click "Record" to record your voice<h2>
-                </div>
-            </div>
-            <canvas id="audio-volume-meter"></canvas>
-        </div>
-        <div class="sample-controls">
-            <div>
-                <button id="load-sample" class="primary-button">Load Sample</button>
-                <input id="sample-file-input" type="file" accept="audio/*" style="display: none" />
-                <button id="record" class="primary-button">Record</button>
-                <button id="play" class="primary-button">Play (Space)</button>
-            </div>
-            <div class="playback-controls">
-                <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1"
-                                                                                                       aria-disabled="true" /></label>
-                <button id="reverse-sample" class="secondary-button">Reverse</button>
-            </div>
-        </div>
 
-        <!-- <div class="analyser-plugin"> -->
-        <!--     <canvas id="frequency-analyzer">The canvas is not supported in your browser</canvas> -->
+                <div id="sample-viewer-window" class="floating-window hidden">
+                    <div class="window-header">
+                        <h3>Sample Viewer</h3>
+                        <div class="right-controls">
+                            <div class="svg-button hide-button">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="window-content">
+                        <div class="canvas-sample">
+                            <canvas id="sample-viewer"></canvas>
+                            <div id="init-placeholder">
+                                <h2>Click "Load Sample" to upload your sample file or click "Record" to record your voice<h2>
+                            </div>
+                        </div>
+                        <canvas id="audio-volume-meter"></canvas>
+                    </div>
+                </div>
+
+                <div id="graph-window" class="floating-window">
+                    <div class="window-header">
+                        <h3>Audio Processing Graph</h3>
+                        <div class="right-controls">
+                            <select id="channel-select">
+                                <option class="select-placeholder" value="" selected disabled>Select channel</option>
+                            </select>
+                            <select id="add-plugin-select">
+                                <option class="select-placeholder" value="" selected disabled>Add plugin</option>
+                            </select>
+                            <div class="svg-button hide-button">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="window-content">
+                        <div class="canvas-wrapper">
+                            <canvas id="graph">The canvas is not supported in your browser</canvas>
+                        </div>
+                        <div id="audio-plugin"></div>
+                    </div>
+                </div>
+
+                <footer class="panel">
+                    <div class="">
+                        <button id="load-sample" class="daw-btn">Load Sample</button>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab-toggle" data-id="sample-viewer-window">Sample Viewer</div>
+                        <div class="tab-toggle active" data-id="graph-window">Audio Processing Graph</div>
+                    </div>
+                </footer>
+            </section>
+        </main>
+        <!---->
+        <!-- <div class="wrapper"> -->
+        <!--     <div class="daw-header"> -->
+        <!--         <div class="header-item" id="bpm">120 BPM</div> -->
+        <!--         <div class="header-item" id="metronome"> -->
+        <!--             <label for="metronome-input">Metronome</label> -->
+        <!--             <input type="checkbox" id="metronome-input" /> -->
+        <!--         </div>  -->
+        <!--         <div class="header-item"> -->
+        <!--             <label for="record-voice">Record Voice</label> -->
+        <!--             <input type="checkbox" id="record-voice" /> -->
+        <!--         </div>  -->
+        <!--     </div> -->
+        <!--     <div class="daw-content"> -->
+        <!--         <div class="flex-horizontal"> -->
+        <!--             <div id="browser"> -->
+        <!--                 <div class="browser-header">Browser</div> -->
+        <!--                 <div class="browser-items"> -->
+        <!--                     <div class="browser-item"> -->
+        <!--                         <span class="browser-item-name">Kick</span>  -->
+        <!--                     </div> -->
+        <!--                     <div class="browser-item"> -->
+        <!--                         <span class="browser-item-name">Snare</span>  -->
+        <!--                     </div> -->
+        <!--                     <div class="browser-item"> -->
+        <!--                         <span class="browser-item-name">HH</span>  -->
+        <!--                     </div> -->
+        <!--                     <div class="browser-item"> -->
+        <!--                         <span class="browser-item-name">OpenHat-1</span>  -->
+        <!--                     </div> -->
+        <!--                     <div class="browser-item"> -->
+        <!--                         <span class="browser-item-name">Voice</span>  -->
+        <!--                     </div> -->
+        <!--                 </div> -->
+        <!--             </div> -->
+        <!--             <div class="timeline-container"> -->
+        <!--                 <canvas id="timeline"></canvas> -->
+        <!--             </div> -->
+        <!--         </div> -->
+        <!--     </div> -->
+        <!--     <hr/> -->
+        <!--     <div class="header"> -->
+        <!--         <div class="canvas-sample"> -->
+        <!--             <canvas id="audio-sample"></canvas> -->
+        <!--             <div id="init-placeholder"> -->
+        <!--                 <h2>Click "Load Sample" to upload your sample file or click "Record" to record your voice<h2> -->
+        <!--             </div> -->
+        <!--         </div> -->
+        <!--         <canvas id="audio-volume-meter"></canvas> -->
+        <!--     </div> -->
+        <!--     <div class="sample-controls"> -->
+        <!--         <div> -->
+        <!--             <button id="load-sample" class="primary-button">Load Sample</button> -->
+        <!--             <input id="sample-file-input" type="file" accept="audio/*" style="display: none" /> -->
+        <!--             <button id="record" class="primary-button">Record</button> -->
+        <!--             <button id="play" class="primary-button">Play (Space)</button> -->
+        <!--         </div> -->
+        <!--         <div class="playback-controls"> -->
+        <!--             <label for="loop-playback">Loop: <input type="checkbox" id="loop-playback" value="off" tabindex="-1" -->
+        <!--                                                                                                    aria-disabled="true" /></label> -->
+        <!--             <button id="reverse-sample" class="secondary-button">Reverse</button> -->
+        <!--         </div> -->
+        <!--     </div> -->
+        <!--     <div class="audio-graph"> -->
+        <!--         <div class="block-header"> -->
+        <!--             <h2>Audio Processing Graph</h2> -->
+        <!--             <div class="graph-controls"> -->
+        <!--                 <select id="channel-select"> -->
+        <!--                 </select> -->
+        <!--                 <select id="add-plugin-select"> -->
+        <!--                     <option id="select-placeholder" value="" selected disabled>Add plugin</option> -->
+        <!--                 </select> -->
+        <!--             </div> -->
+        <!--         </div> -->
+        <!--         <canvas id="graph">The canvas is not supported in your browser</canvas> -->
+        <!--     </div> -->
+        <!--     <div id="audio-plugin"></div> -->
         <!-- </div> -->
-
-        <div class="audio-graph">
-            <div class="block-header">
-                <h2>Audio Processing Graph</h2>
-                <div class="graph-controls">
-                    <select id="channel-select">
-                    </select>
-                    <select id="add-plugin-select">
-                        <option id="select-placeholder" value="" selected disabled>Add plugin</option>
-                    </select>
-                </div>
-            </div>
-            <canvas id="graph">The canvas is not supported in your browser</canvas>
-        </div>
-        <div id="audio-plugin"></div>
-    </div>
-    <div id="context-menu"></div>
-    <script type="module" src="/src/app.ts"></script>
-</body>
+        <!---->
+        <div id="context-menu"></div>
+        <script type="module" src="/src/app.ts"></script>
+    </body>
 
 </html>
