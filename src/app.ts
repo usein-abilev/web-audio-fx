@@ -1,6 +1,6 @@
 import { validateAudioFile } from "./utils/file";
-import { createVolumeMeter } from "./meter"
-import { initGraph } from "./graph"
+import { createVolumeMeter } from "./meter";
+import { initGraph } from "./graph";
 import { formatTime } from "./utils";
 import { initTimeline } from "./timeline";
 import { FloatingWindowType, getState, initState, watchState } from "./state";
@@ -8,7 +8,7 @@ import { FloatingWindowType, getState, initState, watchState } from "./state";
 const AUDIO_SAMPLE_RATE = 44_100; // 48kHz
 const AUDIO_CONTEXT_OPTIONS: AudioContextOptions = {
     sampleRate: AUDIO_SAMPLE_RATE,
-}
+};
 
 type PlaybackState = {
     startedTime: number;
@@ -55,17 +55,17 @@ const KEYBOARD_BINDS = {
 };
 
 const getPlaybackSeconds = (): number => {
-    const elapsed = (state.playback ? state.audioContext.currentTime - state.playback.startedTime : 0);
+    const elapsed = state.playback ? state.audioContext.currentTime - state.playback.startedTime : 0;
     return elapsed + state.playbackOffsetSeconds;
-}
+};
 
-const initStateUI = () => {
+function initStateUI() {
     const bpmInput = document.getElementById("bpm-input")! as HTMLInputElement;
     const playButton = document.getElementById("playback-play")! as HTMLButtonElement;
     const metronomeButton = document.getElementById("metronome-toggle")! as HTMLButtonElement;
     const recordButton = document.getElementById("record-toggle")! as HTMLButtonElement;
 
-    const state = getState()
+    const state = getState();
 
     bpmInput.addEventListener("change", () => {
         state.bpm = Number(bpmInput.value);
@@ -119,7 +119,7 @@ const initStateUI = () => {
     const floatingWindows = document.querySelectorAll(".floating-window");
 
     const floatingHideButtons = document.querySelectorAll(".floating-window .hide-button");
-    floatingHideButtons.forEach(hideButton => {
+    floatingHideButtons.forEach((hideButton) => {
         hideButton.addEventListener("click", (event) => {
             state.activeFloatingWindow = undefined;
         });
@@ -137,11 +137,10 @@ const initStateUI = () => {
     watchState("activeFloatingWindow", (value) => {
         console.log("Active floating window:", value);
 
-        const activeTab = document.querySelector(".tabs .tab-toggle.active")
+        const activeTab = document.querySelector(".tabs .tab-toggle.active");
         if (activeTab) {
-            activeTab.classList.remove("active")
+            activeTab.classList.remove("active");
         }
-
 
         floatingWindows.forEach((item) => {
             if (item.id !== value) {
@@ -157,7 +156,7 @@ const initStateUI = () => {
         }
         tabToActivate.classList.add("active");
     });
-}
+};
 
 window.addEventListener("load", async () => {
     initState();
@@ -211,7 +210,7 @@ window.addEventListener("load", async () => {
         if (state.sourceNode.loop) {
             if (state.selection.selected) {
                 const duration = state.sourceNode.loopEnd - state.sourceNode.loopStart;
-                const offsetInLoop = ((newOffset - state.sourceNode.loopStart) % duration) + duration % duration;
+                const offsetInLoop = ((newOffset - state.sourceNode.loopStart) % duration) + (duration % duration);
                 newOffset = state.sourceNode.loopStart + offsetInLoop;
             } else {
                 newOffset %= state.rawAudioBuffer!.duration;
@@ -219,7 +218,7 @@ window.addEventListener("load", async () => {
         }
 
         return Math.max(0, newOffset);
-    }
+    };
 
     const pauseAudio = () => {
         if (!state.playback) return false;
@@ -231,7 +230,12 @@ window.addEventListener("load", async () => {
             state.sourceNode.stop();
             state.sourceNode.disconnect();
             state.sourceNode = null;
-            console.log("Pause! Played seconds: (%f sec, offset = %f sec)", played, state.playbackOffsetSeconds, state.rawAudioBuffer!.duration);
+            console.log(
+                "Pause! Played seconds: (%f sec, offset = %f sec)",
+                played,
+                state.playbackOffsetSeconds,
+                state.rawAudioBuffer!.duration,
+            );
         }
         state.playback = null;
         updatePlayTextButton();
@@ -279,7 +283,7 @@ window.addEventListener("load", async () => {
         state.sourceNode.start(
             0,
             state.playbackOffsetSeconds,
-            state.selection.selected && !state.sourceNode.loop ? duration : undefined
+            state.selection.selected && !state.sourceNode.loop ? duration : undefined,
         );
         state.playback = {
             startedTime: state.audioContext.currentTime,
@@ -295,7 +299,7 @@ window.addEventListener("load", async () => {
         cursorOffsetX = 0;
         state.rawAudioBuffer = buffer;
         renderedSampleCanvas = null;
-    }
+    };
 
     const renderSampleWaves = (): HTMLCanvasElement => {
         const localCanvas = document.createElement("canvas");
@@ -328,7 +332,7 @@ window.addEventListener("load", async () => {
             ctx.lineTo(x, (1 + max) * middleY);
         }
         ctx.closePath();
-        ctx.strokeStyle = "rgba(126, 36, 128, 1)"
+        ctx.strokeStyle = "rgba(126, 36, 128, 1)";
         ctx.stroke();
 
         return localCanvas;
@@ -394,7 +398,8 @@ window.addEventListener("load", async () => {
         if (state.playback && state.sourceNode) {
             const elapsed = state.audioContext.currentTime - state.playback.startedTime;
             const playbackOffset = calculatePlaybackOffset(elapsed);
-            const playbackOffsetX = (playbackOffset * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
+            const playbackOffsetX =
+                (playbackOffset * scaledWidth) / state.rawAudioBuffer!.duration + scaleCursorOffsetX;
             canvasContext.beginPath();
             canvasContext.moveTo(playbackOffsetX, 0);
             canvasContext.lineTo(playbackOffsetX, canvas.height);
@@ -422,7 +427,7 @@ window.addEventListener("load", async () => {
         if (state.currentFile) {
             const fileText = `File: ${state.currentFile.name} | ${(state.currentFile.size / 1024 / 1024).toFixed(2)} MB`;
             const fileTextWidth = canvasContext.measureText(fileText);
-            canvasContext.fillStyle = "rgba(255, 255, 255, 1)"
+            canvasContext.fillStyle = "rgba(255, 255, 255, 1)";
             canvasContext.fillText(fileText, canvas.width - fileTextWidth.width - 10, 24);
         }
 
@@ -434,7 +439,6 @@ window.addEventListener("load", async () => {
         canvasContext.restore();
     };
     requestAnimationFrame(renderCanvas);
-
 
     const createToggleRecord = () => {
         const constraints: MediaStreamConstraints = {
@@ -449,8 +453,7 @@ window.addEventListener("load", async () => {
         let mediaRecorder: MediaRecorder | null = null;
         return async () => {
             if (!state.recording) {
-                const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-                    .catch(console.error);
+                const mediaStream = await navigator.mediaDevices.getUserMedia(constraints).catch(console.error);
                 if (!mediaStream) return;
 
                 let recordedChunks = [] as Blob[];
@@ -464,17 +467,11 @@ window.addEventListener("load", async () => {
                 mediaRecorder.onstop = () => {
                     const blob = new Blob(recordedChunks, { type: "audio/webm" });
                     recordedChunks = [];
-                    blob
-                        .arrayBuffer()
+                    blob.arrayBuffer()
                         .then((buffer) => state.audioContext.decodeAudioData(buffer))
                         .then((buffer) => updateAudioBuffer(buffer))
-                        .then(() => state.currentFile = null)
-                        .catch((reason) =>
-                            console.error(
-                                "Unable to get an array buffer from MediaRecorder:",
-                                reason
-                            )
-                        );
+                        .then(() => (state.currentFile = null))
+                        .catch((reason) => console.error("Unable to get an array buffer from MediaRecorder:", reason));
                 };
                 mediaRecorder.start();
                 state.recording = true;
@@ -487,8 +484,8 @@ window.addEventListener("load", async () => {
             }
 
             recordButton.innerText = state.recording ? "Stop" : "Record";
-        }
-    }
+        };
+    };
     recordButton.onclick = createToggleRecord();
 
     loadSampleButton.addEventListener("click", () => sampleFileInput.click());
@@ -506,10 +503,11 @@ window.addEventListener("load", async () => {
 
         reader.onload = () => {
             if (!(reader.result instanceof ArrayBuffer)) return;
-            state.audioContext.decodeAudioData(reader.result)
+            state.audioContext
+                .decodeAudioData(reader.result)
                 .then(updateAudioBuffer)
-                .then(() => state.currentFile = file)
-                .catch(error => console.error("Error during decoding an audio file:", error));
+                .then(() => (state.currentFile = file))
+                .catch((error) => console.error("Error during decoding an audio file:", error));
         };
 
         reader.onerror = (error) => {
@@ -519,7 +517,7 @@ window.addEventListener("load", async () => {
         reader.onprogress = (ev) => {
             // TODO: Add progress bar
             console.log("File reading progress:", ev);
-        }
+        };
 
         reader.readAsArrayBuffer(file);
     });
@@ -530,7 +528,7 @@ window.addEventListener("load", async () => {
         } else {
             pauseAudio();
         }
-        playButton.innerText = (state.playback ? "Pause" : "Play");
+        playButton.innerText = state.playback ? "Pause" : "Play";
     };
 
     playButton.addEventListener("click", togglePlayback);
@@ -593,9 +591,10 @@ window.addEventListener("load", async () => {
             state.selection.selected = state.selection.start !== state.selection.end;
             console.log("Selection event on mouseup:", state.selection);
 
-            const mousePlaybackSeconds = Math.max(0,
+            const mousePlaybackSeconds = Math.max(
+                0,
                 (Math.min(state.selection.start, state.selection.end) / state.rawAudioBuffer.length) *
-                state.rawAudioBuffer.duration
+                state.rawAudioBuffer.duration,
             );
 
             if (state.playback) {

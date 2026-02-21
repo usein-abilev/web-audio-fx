@@ -1,7 +1,7 @@
 import { distance2D, randomId } from "./utils"
 import { AudioPlugin } from "./plugins/plugin"
-import type AudioGraphNode from "./nodes/node";
-import { InputGraphNode } from "./nodes/input.node";
+import type AudioBaseNode from "./nodes/node";
+import { InputNode } from "./nodes/input.node";
 import { OutputGraphNode } from "./nodes/output.node";
 import { createContextMenu } from "./contextmenu";
 import PLUGINS from "./plugins";
@@ -23,7 +23,7 @@ type GraphNodeBase = {
 
 export type GraphNode =
     | GraphNodeBase & { type: GraphNodeType.Plugin; instance: AudioPlugin; }
-    | GraphNodeBase & { type: GraphNodeType.Input | GraphNodeType.Output | GraphNodeType.Bus; instance: AudioGraphNode; }
+    | GraphNodeBase & { type: GraphNodeType.Input | GraphNodeType.Output | GraphNodeType.Bus; instance: AudioBaseNode; }
 
 const GRAPH_CONFIG = {
     NODE_WIDTH: 150,
@@ -67,7 +67,7 @@ export class AudioProcessingGraph {
         this.masterGraphNode = {
             id: randomId(),
             type: GraphNodeType.Bus,
-            instance: new InputGraphNode(config.audioContext, "Master Node"),
+            instance: new InputNode(config.audioContext, "Master Node"),
             position: { x: config.graphCanvas.width / 2, y: config.graphCanvas.height / 2 },
             connections: {},
         };
@@ -89,7 +89,7 @@ export class AudioProcessingGraph {
     }
 
     /**
-        * Focuses on specific node chain by hidding other nodes which isn't related to the node
+        * Focuses on specific node chain by hidding other nodes which isn"t related to the node
     */
     focusNodeChain(node: GraphNode) {
         this.focusedNodeChain = node;
@@ -100,7 +100,7 @@ export class AudioProcessingGraph {
         return this.nodes.filter(node => node.type === GraphNodeType.Bus);
     }
 
-    addInput(instance: InputGraphNode, connectToId?: string) {
+    addInput(instance: InputNode, connectToId?: string) {
         const node = {
             id: randomId(),
             type: GraphNodeType.Input,
@@ -262,7 +262,7 @@ export const initGraph = (config: InitGraphConfig) => {
                 key: "bypass",
                 displayText: () => {
                     if (graph.selectedNode?.type === GraphNodeType.Plugin) {
-                        return graph.selectedNode.instance.bypass ? "Activate node" : "Bypass node";
+                        return graph.selectedNode.instance.isBypassed ? "Activate node" : "Bypass node";
                     }
                     return "";
                 },
@@ -270,7 +270,7 @@ export const initGraph = (config: InitGraphConfig) => {
                 handler: () => {
                     if (!graph.selectedNode) return;
                     const plugin = graph.selectedNode.instance as AudioPlugin;
-                    plugin.setBypass(!plugin.bypass);
+                    plugin.setBypass(!plugin.isBypassed);
                 },
             },
             {
@@ -323,7 +323,7 @@ export const initGraph = (config: InitGraphConfig) => {
             const selected = graph.selectedNode?.id === node.id;
 
             graphCtx.save();
-            graphCtx.globalAlpha = node.type === GraphNodeType.Plugin && node.instance.bypass ? 0.5 : 1;
+            graphCtx.globalAlpha = node.type === GraphNodeType.Plugin && node.instance.isBypassed ? 0.5 : 1;
 
             // draw node box and small dots for connectors (for input is on the left, for output is on the right
             graphCtx.beginPath();
@@ -334,8 +334,10 @@ export const initGraph = (config: InitGraphConfig) => {
             graphCtx.stroke();
             graphCtx.fill();
 
+            const isDarkTheme = document.body.classList.contains("theme-dark");
+
             // draw node label
-            graphCtx.fillStyle = "#FFFFFF";
+            graphCtx.fillStyle = isDarkTheme ? "#FFFFFF" : "#333";
             graphCtx.font = "14px Arial";
             const nodeName = node.instance.name
             graphCtx.fillText(nodeName, node.position.x + 10, node.position.y + 25);
@@ -454,7 +456,7 @@ export const initGraph = (config: InitGraphConfig) => {
     }
 
     const displayGraphNodeUI = (node: GraphNode) => {
-        node.instance.render(pluginWindowEl);
+        // node.instance.render(pluginWindowEl);
     };
 
     const setCursorType = (type: "default" | "grabbing" | "pointer") => {
@@ -491,7 +493,7 @@ export const initGraph = (config: InitGraphConfig) => {
         }
 
         delete graph.selectedNode;
-        // TODO: This is the bad way to implement this, consider using 'hide()' and 'show()' functions
+        // TODO: This is the bad way to implement this, consider using "hide()" and "show()" functions
         pluginWindowEl.innerHTML = "";
     });
 

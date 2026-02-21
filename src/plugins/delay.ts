@@ -1,13 +1,11 @@
-import builder from "../utils/uibuilder";
 import { AudioPlugin } from "./plugin";
 
 export class DelayPlugin extends AudioPlugin {
-    public static readonly NAME = "Delay"
     public get name() {
-        return DelayPlugin.NAME;
+        return "Delay";
     }
 
-    private maxDelayTime = 5; // in seconds
+    private maxDelayTime = 5;
     private delay: DelayNode;
     private feedback: GainNode;
 
@@ -24,31 +22,56 @@ export class DelayPlugin extends AudioPlugin {
         this.feedback.connect(this.delay);
         this.input.connect(this.delay)
         this.delay.connect(this.wetNode);
-    }
 
-    render(parent: HTMLElement) {
-        const container = builder.createContainer(
-            builder.slider("Feedback", (value) => (this.feedback.gain.value = value), {
-                min: 0,
-                max: 2,
-                value: this.feedback.gain.value,
-                defaultValue: 0.2,
-                step: 0.01,
-                formatter: (v) => `${(v * 100).toFixed(0)}%`,
-            }),
-            builder.slider("Delay", (value) => (this.delay.delayTime.value = value), {
+        this.params.push(
+            {
+                id: "delay",
+                name: "Delay Time",
+                type: "number",
                 min: 0,
                 max: this.maxDelayTime,
-                value: this.delay.delayTime.value,
-                defaultValue: 0.5,
                 step: 0.1,
-                formatter: (v) => `${v.toFixed(1)} sec`,
-            }),
-            this.mixSliderElement,
-            this.inputSlider,
-            this.outputSlider,
+                defaultValue: 0.5,
+                getValue: () => this.delay.delayTime.value,
+                setValue: (value) => this.delay.delayTime.setValueAtTime(value as number, this.audioContext.currentTime),
+            },
+            {
+                id: "feedback",
+                name: "Feedback",
+                type: "number",
+                min: 0,
+                max: 2,
+                step: 0.01,
+                defaultValue: 0.2,
+                getValue: () => this.feedback.gain.value,
+                setValue: (value) => this.feedback.gain.setValueAtTime(value as number, this.audioContext.currentTime),
+            },
         );
-        parent.innerHTML = "";
-        parent.appendChild(container);
     }
+
+    // render(parent: HTMLElement) {
+    //     const container = builder.createContainer(
+    //         builder.slider("Feedback", (value) => (this.feedback.gain.value = value), {
+    //             min: 0,
+    //             max: 2,
+    //             value: this.feedback.gain.value,
+    //             defaultValue: 0.2,
+    //             step: 0.01,
+    //             formatter: (v) => `${(v * 100).toFixed(0)}%`,
+    //         }),
+    //         builder.slider("Delay", (value) => (this.delay.delayTime.value = value), {
+    //             min: 0,
+    //             max: this.maxDelayTime,
+    //             value: this.delay.delayTime.value,
+    //             defaultValue: 0.5,
+    //             step: 0.1,
+    //             formatter: (v) => `${v.toFixed(1)} sec`,
+    //         }),
+    //         this.mixSliderElement,
+    //         this.inputSlider,
+    //         this.outputSlider,
+    //     );
+    //     parent.innerHTML = "";
+    //     parent.appendChild(container);
+    // }
 }

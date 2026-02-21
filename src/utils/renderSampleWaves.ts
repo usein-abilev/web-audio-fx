@@ -1,7 +1,7 @@
 
 const renderSampleWaves = (
-    buffer: AudioBuffer, 
-    width: number, height: number, 
+    buffer: AudioBuffer,
+    width: number, height: number,
     sampleScale: number, scaleOffsetX: number,
     wavesColor?: string,
 ): HTMLCanvasElement => {

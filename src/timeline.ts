@@ -1,5 +1,5 @@
 import type { AudioProcessingGraph } from "./graph";
-import { InputGraphNode } from "./nodes/input.node";
+import { InputNode } from "./nodes/input.node";
 import { watchState } from "./state";
 import { fetchAudioAsArrayBuffer, withBasePath } from "./utils";
 import renderSampleWaves from "./utils/renderSampleWaves";
@@ -26,7 +26,7 @@ class TimelineEvent {
     }
 }
 
-class TimelineTrack extends InputGraphNode {
+class TimelineTrack extends InputNode {
     constructor(audioContext: AudioContext, name: string) {
         super(audioContext, name);
     }
@@ -235,7 +235,7 @@ class Timeline {
             source.stop();
             source.disconnect();
         }
-        if (newTrackId > 0 && newTrackId < this.tracks.length) {
+        if (newTrackId >= 0 && newTrackId < this.tracks.length) {
             event.trackId = newTrackId;
         }
         event.scheduled = false;
@@ -516,7 +516,7 @@ class AudioBrowser {
     }
 }
 
-const COLOR_SCHEME = {
+const DARK_COLOR_SCHEME = {
     timelineBackground: "#1e2024",
     timelineBarBackground: "#191b1f",
     gridColor: "#0b0b0d",
@@ -527,6 +527,24 @@ const COLOR_SCHEME = {
     accentColors: {
         blue: ["#34498c", "#233161"],
     },
+};
+
+const LIGHT_COLOR_SCHEME = {
+    timelineBackground: "#f8f9fa",
+    timelineBarBackground: "#ffffff",
+    gridColor: "#e9ecef",
+    gridBarColor: "#f1f3f4",
+    gridStepColor: "#e9ecefaa",
+    timelineHeaderTextColor: "#666",
+
+    accentColors: {
+        blue: ["#4a76cf", "#3a5da5"],
+    },
+};
+
+const getColorScheme = () => {
+    const isDarkTheme = document.body.classList.contains("theme-dark");
+    return isDarkTheme ? DARK_COLOR_SCHEME : LIGHT_COLOR_SCHEME;
 };
 
 /**
@@ -766,23 +784,25 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
     const clipWavesCache = new Map<number, HTMLCanvasElement>();
 
     const renderTimeline = (timestamp: number) => {
+        const colorScheme = getColorScheme();
+
         requestAnimationFrame(renderTimeline);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = COLOR_SCHEME.timelineBackground;
+        ctx.fillStyle = colorScheme.timelineBackground;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const timelineWidth = canvas.width - timelineGrid.trackPaneWidth;
 
         // draw bars
         ctx.beginPath();
-        ctx.fillStyle = COLOR_SCHEME.timelineBarBackground;
+        ctx.fillStyle = colorScheme.timelineBarBackground;
         const bars = timelineWidth / timelineGrid.barWidth;
         for (let i = 0; i < bars; i++) {
             const barX = i * timelineGrid.barWidth;
             if (barX > timelineWidth) return;
 
             ctx.save();
-            ctx.fillStyle = COLOR_SCHEME.timelineHeaderTextColor;
+            ctx.fillStyle = colorScheme.timelineHeaderTextColor;
             ctx.font = "10px SF Pro Text";
             ctx.fillText(String(i + 1), barX, timelineGrid.headerHeight - 5);
             ctx.restore();
@@ -794,7 +814,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
             }
         }
         ctx.closePath();
-        ctx.strokeStyle = COLOR_SCHEME.gridColor;
+        ctx.strokeStyle = colorScheme.gridColor;
         ctx.stroke();
 
         // draw grid steps
@@ -807,7 +827,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
             ctx.lineTo(x, canvas.height);
         }
         ctx.closePath();
-        ctx.strokeStyle = COLOR_SCHEME.gridStepColor;
+        ctx.strokeStyle = colorScheme.gridStepColor;
         ctx.stroke();
 
         // draw beats
@@ -819,7 +839,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
             ctx.lineTo(x, canvas.height);
         }
         ctx.closePath();
-        ctx.strokeStyle = COLOR_SCHEME.gridBarColor;
+        ctx.strokeStyle = colorScheme.gridBarColor;
         ctx.stroke();
 
         // draw clips 
@@ -832,7 +852,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
                 const y = clip.trackId * timelineGrid.trackHeight + timelineGrid.headerHeight;
 
                 ctx.beginPath();
-                ctx.fillStyle = COLOR_SCHEME.accentColors.blue[0];
+                ctx.fillStyle = colorScheme.accentColors.blue[0];
                 ctx.rect(x, y, width, timelineGrid.trackHeight);
                 ctx.fill();
                 ctx.strokeStyle = "#1e1e1e";
@@ -845,7 +865,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
                 ctx.drawImage(clipWavesCache.get(clip.data.id)!, x, y + 20);
 
                 // header
-                ctx.fillStyle = COLOR_SCHEME.accentColors.blue[1];
+                ctx.fillStyle = colorScheme.accentColors.blue[1];
                 ctx.fillRect(x, y, width, 20);
                 ctx.stroke();
 
@@ -888,7 +908,7 @@ export const initTimeline = async (audioContext: AudioContext, graph: AudioProce
             ctx.fillText(tracks[i].name, trackX + 10, trackY + 10);
         }
         ctx.closePath();
-        ctx.strokeStyle = COLOR_SCHEME.gridColor;
+        ctx.strokeStyle = colorScheme.gridColor;
         ctx.stroke();
         ctx.restore();
     }

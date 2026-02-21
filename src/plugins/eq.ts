@@ -1,14 +1,12 @@
-import builder from "../utils/uibuilder";
+import type { AudioNodeParam } from "./params";
 import { AudioPlugin } from "./plugin";
 
 export class Equalizer7BandPlugin extends AudioPlugin {
-    public static readonly NAME = "Equalizer (7 Band)";
     public get name() {
-        return Equalizer7BandPlugin.NAME;
+        return "Equalizer (7 band)";
     }
 
-    public bands: BiquadFilterNode[];
-    private blockElement: HTMLElement;
+    private bands: BiquadFilterNode[];
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
@@ -27,26 +25,31 @@ export class Equalizer7BandPlugin extends AudioPlugin {
         this.input.connect(this.bands[0]);
         this.bands.at(-1)?.connect(this.wetNode);
 
-        const options = { min: -12, max: 12, step: 0.1, defaultValue: 0 };
-
-        this.blockElement = builder.block(this.bands.map((band) => {
-            return builder.slider(
-                `${band.frequency.value}Hz`,
-                (value) => band.gain.setValueAtTime(value, this.audioContext.currentTime + 0.01),
-                { ...options, formatter: (v) => `${v.toFixed(1)} dB`, value: band.gain.value }
-            );
+        this.params.push(...this.bands.map((band, i) => {
+            const freq = band.frequency.value;
+            return {
+                id: `band_${i}`,
+                name: `${freq}Hz`,
+                type: "number" as const,
+                min: -12,
+                max: 12,
+                step: 0.1,
+                defaultValue: 0,
+                getValue: () => band.gain.value,
+                setValue: (value) => band.gain.setValueAtTime(value as number, this.audioContext.currentTime),
+            } satisfies AudioNodeParam;
         }));
     }
 
-    render(parent: HTMLElement) {
-        const container = builder.createContainer(
-            this.blockElement,
-            this.mixSliderElement,
-            this.inputSlider,
-            this.outputSlider,
-        );
-
-        parent.innerHTML = "";
-        parent.appendChild(container);
-    }
+    // render(parent: HTMLElement) {
+    //     const container = builder.createContainer(
+    //         this.blockElement,
+    //         this.mixSliderElement,
+    //         this.inputSlider,
+    //         this.outputSlider,
+    //     );
+    //
+    //     parent.innerHTML = "";
+    //     parent.appendChild(container);
+    // }
 }
