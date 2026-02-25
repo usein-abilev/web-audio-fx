@@ -40,16 +40,4 @@ export class Equalizer7BandPlugin extends AudioPlugin {
             } satisfies AudioNodeParam;
         }));
     }
-
-    // render(parent: HTMLElement) {
-    //     const container = builder.createContainer(
-    //         this.blockElement,
-    //         this.mixSliderElement,
-    //         this.inputSlider,
-    //         this.outputSlider,
-    //     );
-    //
-    //     parent.innerHTML = "";
-    //     parent.appendChild(container);
-    // }
 }

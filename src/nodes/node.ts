@@ -8,9 +8,6 @@ export default abstract class AudioBaseNode {
     protected input: GainNode;
     protected output: GainNode;
 
-    // protected inputSlider: HTMLElement;
-    // protected outputSlider: HTMLElement;
-
     constructor(protected audioContext: AudioContext) {
         this.input = this.audioContext.createGain();
         this.output = this.audioContext.createGain();
@@ -41,13 +38,17 @@ export default abstract class AudioBaseNode {
         // );
     }
 
-    connectInput(source: AudioNode) {
+    receiveInput(source: AudioNode) {
         source.connect(this.input);
         return this;
     }
 
-    connect(target: AudioNode) {
-        this.output.connect(target);
+    connect(target: AudioNode | AudioBaseNode) {
+        if (target instanceof AudioBaseNode) {
+            target.receiveInput(this.output);
+        } else {
+            this.output.connect(target);
+        }
         return this;
     }
 

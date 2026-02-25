@@ -35,7 +35,9 @@ export class CompressorPlugin extends AudioPlugin {
             defaultValue,
             getValue: () => this.compressor[audioParamName].value,
             setValue: (value) => {
-                const normalizedValue = normalizeFn(value as number, min, max);
+                const normalizedValue = value as number;
+                // const normalizedValue = normalizeFn(value as number, min, max);
+                // console.log("[CompressorPlugin]: params.setValue", value, normalizedValue);
                 this.compressor[audioParamName].setValueAtTime(normalizedValue, this.audioContext.currentTime);
             },
         });

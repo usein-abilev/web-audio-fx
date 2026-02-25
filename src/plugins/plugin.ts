@@ -3,14 +3,16 @@ import { disconnectAudioNodesSafe } from "../utils";
 import type { AudioNodeParam } from "./params";
 
 export class AudioPlugin extends AudioBaseNode {
+    public get name() {
+        return "Unknown Audio Plugin"
+    }
+
     private bypass = false;
 
     protected dryNode: GainNode;
     protected wetNode: GainNode;
     protected mixValue: number = 1;
     protected params: AudioNodeParam[];
-
-    // protected mixSliderElement: HTMLElement;
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
@@ -42,23 +44,13 @@ export class AudioPlugin extends AudioBaseNode {
                 setValue: (value) => this.setMixValue(value as number),
             },
         ];
-
-        // this.mixSliderElement = builder.knob("Mix", (value) => this.setMixValue(value), {
-        //     max: 1,
-        //     value: this.getMixValue(),
-        //     defaultValue: 1,
-        // });
     }
 
     getParams(): AudioNodeParam[] {
         return this.params;
     }
 
-    get isBypassed() {
-        return this.bypass;
-    }
-
-    setBypass(value: boolean) {
+    protected setBypass(value: boolean) {
         this.bypass = value;
         if (this.bypass) {
             disconnectAudioNodesSafe(this.wetNode, this.output);
@@ -73,18 +65,10 @@ export class AudioPlugin extends AudioBaseNode {
         }
     }
 
-    setMixValue(value: number) {
+    protected setMixValue(value: number) {
         this.mixValue = value;
         this.dryNode.gain.value = 1 - this.mixValue;
         this.wetNode.gain.value = this.mixValue;
-    }
-
-    get name() {
-        return "Unknown Audio Plugin"
-    }
-
-    get [Symbol.toStringTag]() {
-        return "Audio Plugin";
     }
 }
 

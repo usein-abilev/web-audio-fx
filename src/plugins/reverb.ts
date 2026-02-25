@@ -21,15 +21,49 @@ export class ReverbPlugin extends AudioPlugin {
         return "Reverb (IR)"
     }
 
+    private delayNode: DelayNode;
     private convolver: ConvolverNode;
+    private decayGain: GainNode;
     private selectedIRPath: string = "";
 
     constructor(audioContext: AudioContext) {
         super(audioContext);
-        this.convolver = this.audioContext.createConvolver();
-        this.input.connect(this.convolver).connect(this.wetNode);
+
+        this.delayNode = audioContext.createDelay(0.1);
+        this.convolver = audioContext.createConvolver();
+        this.decayGain = audioContext.createGain();
+
+        this.delayNode.delayTime.value = 0.02;
+        this.decayGain.gain.value = 2;
+
+        this.input.connect(this.delayNode);
+        this.delayNode.connect(this.convolver);
+        this.convolver.connect(this.decayGain);
+        this.decayGain.connect(this.wetNode);
 
         this.params.push(
+            {
+                id: "predelay",
+                name: "PreDelay",
+                type: "number",
+                min: 0,
+                max: 0.1,
+                step: 0.01,
+                defaultValue: 0.02,
+                getValue: () => this.delayNode.delayTime.value,
+                setValue: (value) => this.delayNode.delayTime.setValueAtTime(value as number, this.audioContext.currentTime),
+            },
+            {
+                id: "decay",
+                name: "Decay",
+                type: "number",
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                defaultValue: 2,
+                getValue: () => this.decayGain.gain.value,
+                setValue: (value) => this.decayGain.gain.setValueAtTime(value as number, this.audioContext.currentTime),
+            },
             {
                 id: "ir",
                 name: "Impulse Response",
@@ -48,9 +82,14 @@ export class ReverbPlugin extends AudioPlugin {
                 },
             },
         );
+
+        const irParam = this.params.find(p => p.id === "ir");
+        if (irParam) {
+            irParam.setValue(irParam.defaultValue as string);
+        }
     }
 
-    setIRBuffer(buffer: AudioBuffer) {
+    private setIRBuffer(buffer: AudioBuffer) {
         this.convolver.buffer = buffer;
     }
 

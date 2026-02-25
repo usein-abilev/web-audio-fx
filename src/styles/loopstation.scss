@@ -1,0 +1,445 @@
+* {
+	font-family: "Arial", sans-serif;
+	user-select: none;
+}
+
+/* Input FX Chain Styles */
+.fx-chain-container {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 12px;
+	overflow-x: auto;
+	background: #e0e0e0;
+	border: 1px solid #888;
+	min-height: 120px;
+}
+
+.input-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px;
+	background: #ccc;
+	border-radius: 6px;
+	min-width: 100px;
+}
+
+.input-controls label {
+    line-height: 1em;
+    padding: 0px;
+    margin: 0px;
+	font-size: 11px;
+	font-weight: bold;
+	color: #333;
+	display: block;
+	margin-bottom: 2px;
+}
+
+.input-controls input[type="range"] {
+	width: 80px;
+	height: 6px;
+	-webkit-appearance: none;
+	background: #999;
+	border-radius: 3px;
+	outline: none;
+}
+
+.input-controls input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 14px;
+	height: 14px;
+	background: #555;
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.input-controls input[type="checkbox"] {
+	cursor: pointer;
+}
+
+.input-controls .mono-control {
+	display: flex;
+    gap: 4px;
+	align-items: center;
+	font-size: 12px;
+}
+
+.plugin-chain {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
+
+.plugin {
+	background: #f5f5f5;
+	border: 1px solid #666;
+	border-radius: 6px;
+	min-width: 160px;
+	transition: opacity 0.2s, transform 0.2s;
+}
+
+.plugin:active {
+	cursor: grabbing;
+}
+
+.drag-handle {
+	font-size: 14px;
+	color: #666;
+	cursor: grab;
+	padding: 0 2px;
+}
+
+.drag-handle:active {
+	cursor: grabbing;
+}
+
+.plugin:active {
+	cursor: grabbing;
+}
+
+.plugin.dragging {
+	opacity: 0.4;
+}
+
+.plugin.drag-over {
+	border-color: #2196F3;
+	background: #e3f2fd;
+}
+
+.plugin.bypassed {
+	opacity: 0.5;
+}
+
+.plugin-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px;
+	background: #ddd;
+	border-bottom: 1px solid #aaa;
+	border-radius: 5px 5px 0 0;
+}
+
+.drag-handle {
+	font-size: 14px;
+	color: #666;
+	cursor: grab;
+	padding: 0 2px;
+}
+
+.plugin-name {
+	flex: 1;
+	font-size: 12px;
+	font-weight: bold;
+	color: #333;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bypass-btn, .remove-btn {
+	padding: 2px 6px;
+	font-size: 10px;
+	border: 1px solid #999;
+	background: #eee;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.bypass-btn:hover, .remove-btn:hover {
+	background: #ddd;
+}
+
+.bypass-btn.active {
+	background: #ff9800;
+	color: white;
+	border-color: #e65100;
+}
+
+.plugin-content {
+	padding: 8px;
+	font-size: 11px;
+	color: #555;
+}
+
+select {
+  font-size: 12px;
+  padding: 4px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.add-plugin {
+  min-width: 100px;
+  padding: 8px;
+  background: #d0d0d0;
+  border: 1px dashed #888;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plugin-placeholder {
+	min-width: 160px;
+	height: 80px;
+	border: 2px dashed #2196F3;
+	border-radius: 6px;
+	background: #e3f2fd;
+}
+
+/* EQ Plugin Content */
+.eq-bands {
+	display: flex;
+	gap: 4px;
+	justify-content: space-between;
+}
+
+.eq-band {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+}
+
+input[type="range"] {
+	width: 4px;
+	height: 50px;
+	-webkit-appearance: none;
+	background: #ccc;
+	border-radius: 3px;
+}
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 10px;
+	height: 10px;
+	background: #555;
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.eq-band input[type="range"] {
+	writing-mode: vertical-lr;
+}
+.eq-band label {
+	font-size: 9px;
+	color: #666;
+}
+
+.plugin-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 10px;
+      width: 40px;
+      color: #555;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #ccc;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #555;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+  }
+
+/* Track Styles */
+.tracks-section {
+	margin-top: 10px;
+	display: flex;
+	gap: 10px;
+	padding: 10px;
+	border: 1px solid #888;
+	background: #eee;
+    overflow-x: auto;
+
+    .track {
+      background: #f5f5f5;
+      border: 1px solid #666;
+      border-radius: 6px;
+      min-width: 100px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .track-header {
+      display: flex;
+      min-width: 130px;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background: #ddd;
+      border-bottom: 1px solid #aaa;
+      border-radius: 5px 5px 0 0;
+    }
+
+    .track-name {
+      flex: 1;
+      font-size: 11px;
+      font-weight: bold;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-mute,
+    .track-solo,
+    .track-clear {
+      padding: 2px 5px;
+      font-size: 9px;
+      font-weight: bold;
+      border: 1px solid #999;
+      background: #eee;
+      border-radius: 3px;
+      cursor: pointer;
+      min-width: 18px;
+    }
+
+    .track-mute:hover,
+    .track-solo:hover,
+    .track-clear:hover {
+      background: #ddd;
+    }
+
+    .track-mute.active {
+      background: #ff9800;
+      color: white;
+      border-color: #e65100;
+    }
+
+    .track-solo.active {
+      background: #2196F3;
+      color: white;
+      border-color: #1565C0;
+    }
+
+    .track-content {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .track-measure {
+      text-align: center;
+
+      select {
+        font-size: 9px;
+        padding: 2px;
+        width: 100%;
+      }
+    }
+
+    .track-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .track-record,
+    .track-play {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #999;
+      border-radius: 50%;
+      background: #eee;
+      cursor: pointer;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .track-record:hover,
+    .track-play:hover {
+      background: #ddd;
+    }
+
+    .track-record.recording {
+      background: #f44336;
+      color: white;
+      border-color: #d32f2f;
+    }
+
+    .track-record.overdub {
+      background: #ffc107;
+      color: #333;
+      border-color: #ffa000;
+    }
+
+    .track-record.count-in {
+      animation: countInPulse 0.25s ease-in-out infinite;
+    }
+
+    .track-record.count-in-active {
+      animation: countInBeat 0.1s ease-out;
+    }
+
+    @keyframes countInPulse {
+      0%, 100% { background: #eee; }
+      50% { background: #ff9800; }
+    }
+
+    @keyframes countInBeat {
+      0% { background: #ff9800; }
+      100% { background: #eee; }
+    }
+
+    .track-play.active {
+      background: #4caf50;
+      color: white;
+      border-color: #388E3C;
+    }
+
+    .track-volume {
+      padding-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      label {
+        font-size: 11px;
+        color: #333;
+        display: block;
+      }
+
+    input[type="range"] {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #ccc;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #555;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    }
+}

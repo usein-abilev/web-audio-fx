@@ -5,360 +5,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Loopstation Demo</title>
         <link rel="stylesheet" href="/src/styles/loopstation.scss">
-        <style>
-            * {
-                font-family: "Arial", sans-serif;
-                user-select: none;
-            }
-
-            .tracks-section {
-                margin-top: 10px;
-                display: flex;
-                padding: 10px;
-                border: 1px solid #888;
-                background: #eee;
-            }
-
-            /* Input FX Chain Styles */
-            .fx-chain-container {
-                display: flex;
-                align-items: flex-start;
-                gap: 12px;
-                padding: 12px;
-                overflow-x: auto;
-                background: #e0e0e0;
-                border: 1px solid #888;
-                min-height: 120px;
-            }
-
-            .input-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                padding: 10px;
-                background: #ccc;
-                border-radius: 6px;
-                min-width: 100px;
-            }
-
-            .input-controls label {
-                font-size: 11px;
-                font-weight: bold;
-                color: #333;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            .input-controls input[type="range"] {
-                width: 80px;
-                height: 6px;
-                -webkit-appearance: none;
-                background: #999;
-                border-radius: 3px;
-                outline: none;
-            }
-
-            .input-controls input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 14px;
-                height: 14px;
-                background: #555;
-                border-radius: 50%;
-                cursor: pointer;
-            }
-
-            .input-controls input[type="checkbox"] {
-                width: 16px;
-                height: 16px;
-                cursor: pointer;
-            }
-
-            .input-controls .mono-control {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-            }
-
-            .plugin-chain {
-                display: flex;
-                gap: 10px;
-                align-items: flex-start;
-            }
-
-            .plugin {
-                background: #f5f5f5;
-                border: 1px solid #666;
-                border-radius: 6px;
-                min-width: 160px;
-                transition: opacity 0.2s, transform 0.2s;
-            }
-
-            .plugin:active {
-                cursor: grabbing;
-            }
-
-            .drag-handle {
-                font-size: 14px;
-                color: #666;
-                cursor: grab;
-                padding: 0 2px;
-            }
-
-            .drag-handle:active {
-                cursor: grabbing;
-            }
-
-            .plugin:active {
-                cursor: grabbing;
-            }
-
-            .plugin.dragging {
-                opacity: 0.4;
-            }
-
-            .plugin.drag-over {
-                border-color: #2196F3;
-                background: #e3f2fd;
-            }
-
-            .plugin.bypassed {
-                opacity: 0.5;
-            }
-
-            .plugin-header {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                padding: 4px;
-                background: #ddd;
-                border-bottom: 1px solid #aaa;
-                border-radius: 5px 5px 0 0;
-            }
-
-            .drag-handle {
-                font-size: 14px;
-                color: #666;
-                cursor: grab;
-                padding: 0 2px;
-            }
-
-            .plugin-name {
-                flex: 1;
-                font-size: 12px;
-                font-weight: bold;
-                color: #333;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            .bypass-btn, .remove-btn {
-                padding: 2px 6px;
-                font-size: 10px;
-                border: 1px solid #999;
-                background: #eee;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-
-            .bypass-btn:hover, .remove-btn:hover {
-                background: #ddd;
-            }
-
-            .bypass-btn.active {
-                background: #ff9800;
-                color: white;
-                border-color: #e65100;
-            }
-
-            .plugin-content {
-                padding: 8px;
-                font-size: 11px;
-                color: #555;
-            }
-
-            .add-plugin {
-                min-width: 100px;
-                padding: 8px;
-                background: #d0d0d0;
-                border: 1px dashed #888;
-                border-radius: 6px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .add-plugin select {
-                font-size: 12px;
-                padding: 4px;
-                border: 1px solid #999;
-                border-radius: 4px;
-                background: white;
-                cursor: pointer;
-            }
-
-            .plugin-placeholder {
-                min-width: 160px;
-                height: 80px;
-                border: 2px dashed #2196F3;
-                border-radius: 6px;
-                background: #e3f2fd;
-            }
-
-            /* EQ Plugin Content */
-            .eq-bands {
-                display: flex;
-                gap: 4px;
-                justify-content: space-between;
-            }
-
-            .eq-band {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 2px;
-            }
-            
-            input[type="range"] {
-                width: 4px;
-                height: 50px;
-                -webkit-appearance: none;
-                background: #ccc;
-                border-radius: 3px;
-            }
-            input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                background: #555;
-                border-radius: 50%;
-                cursor: pointer;
-            }
-
-            .eq-band input[type="range"] {
-                writing-mode: vertical-lr;
-            }
-            .eq-band label {
-                font-size: 9px;
-                color: #666;
-            }
-
-            /* Reverb Plugin Content */
-            .reverb-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            .reverb-controls .control-row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .reverb-controls label {
-                font-size: 10px;
-                width: 40px;
-                color: #555;
-            }
-
-            .reverb-controls input[type="range"] {
-                flex: 1;
-                height: 4px;
-                -webkit-appearance: none;
-                background: #ccc;
-                border-radius: 2px;
-            }
-
-            .reverb-controls input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                background: #555;
-                border-radius: 50%;
-                cursor: pointer;
-            }
-
-            /* Delay Plugin Content */
-            .delay-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            .delay-controls .control-row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .delay-controls label {
-                font-size: 10px;
-                width: 40px;
-                color: #555;
-            }
-
-            .delay-controls input[type="range"] {
-                flex: 1;
-                height: 4px;
-                -webkit-appearance: none;
-                background: #ccc;
-                border-radius: 2px;
-            }
-
-            .delay-controls input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                background: #555;
-                border-radius: 50%;
-                cursor: pointer;
-            }
-
-            /* Compressor Plugin Content */
-            .compressor-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            .compressor-controls .control-row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .compressor-controls label {
-                font-size: 10px;
-                width: 40px;
-                color: #555;
-            }
-
-            .compressor-controls input[type="range"] {
-                flex: 1;
-                height: 4px;
-                -webkit-appearance: none;
-                background: #ccc;
-                border-radius: 2px;
-            }
-
-            .compressor-controls input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                background: #555;
-                border-radius: 50%;
-                cursor: pointer;
-            }
-        </style>
     </head>
 
     <body>
         <header>
             <div class="bpm-section">
-                <label>Tempo: <input id="bpm-input" type="number" value="120" /></label>
-                <button id="tap-metronome-button">TAP</button>
+                <label>Tempo: <input id="bpm-input" type="number" value="80" min="20" max="250" /></label>
                 <label>Metronome: <input id="metronome-toggle" type="checkbox" /></label>
                 <label>Input Monitoring: <input id="monitoring-toggle" type="checkbox" /></label>
             </div>
@@ -385,77 +37,77 @@
                         <input type="range" id="input-pan" data-param="pan" min="-1" max="1" step="0.1" value="0" />
                     </div>
                     <div class="control-group mono-control">
-                        <input type="checkbox" id="input-mono" data-param="mono" />
+                        <input type="checkbox" id="input-mono" data-param="mono" checked />
                         <label for="input-mono">Mono</label>
                     </div>
                 </div>
                 
                 <div class="plugin-chain" id="plugin-chain">
-                    <div class="plugin" data-plugin="eq">
-                        <div class="plugin-header">
-                            <span class="drag-handle" draggable="true">≡</span>
-                            <span class="plugin-name">Equalizer</span>
-                            <button class="bypass-btn">Bypass</button>
-                            <button class="remove-btn">×</button>
-                        </div>
-                        <div class="plugin-content">
-                            <div class="eq-bands">
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>60Hz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>170Hz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>310Hz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>600Hz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>3kHz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>6kHz</label>
-                                </div>
-                                <div class="eq-band">
-                                    <input type="range" min="-12" max="12" value="0" />
-                                    <label>12kHz</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="plugin" data-plugin="reverb">
-                        <div class="plugin-header">
-                            <span class="drag-handle" draggable="true">≡</span>
-                            <span class="plugin-name">Reverb</span>
-                            <button class="bypass-btn">Bypass</button>
-                            <button class="remove-btn">×</button>
-                        </div>
-                        <div class="plugin-content">
-                            <div class="reverb-controls">
-                                <div class="control-row">
-                                    <label>Mix</label>
-                                    <input type="range" min="0" max="1" step="0.05" value="0.3" />
-                                </div>
-                                <div class="control-row">
-                                    <label>Decay</label>
-                                    <input type="range" min="0.1" max="10" step="0.1" value="2" />
-                                </div>
-                                <div class="control-row">
-                                    <label>PreDelay</label>
-                                    <input type="range" min="0" max="0.1" step="0.01" value="0.02" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- <div class="plugin" data-plugin="eq"> -->
+                    <!--     <div class="plugin-header"> -->
+                    <!--         <span class="drag-handle" draggable="true">≡</span> -->
+                    <!--         <span class="plugin-name">Equalizer</span> -->
+                    <!--         <button class="bypass-btn">Bypass</button> -->
+                    <!--         <button class="remove-btn">×</button> -->
+                    <!--     </div> -->
+                    <!--     <div class="plugin-content"> -->
+                    <!--         <div class="eq-bands"> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>60Hz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>170Hz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>310Hz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>600Hz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>3kHz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>6kHz</label> -->
+                    <!--             </div> -->
+                    <!--             <div class="eq-band"> -->
+                    <!--                 <input type="range" min="-12" max="12" value="0" /> -->
+                    <!--                 <label>12kHz</label> -->
+                    <!--             </div> -->
+                    <!--         </div> -->
+                    <!--     </div> -->
+                    <!-- </div> -->
+                    <!---->
+                    <!-- <div class="plugin" data-plugin="reverb"> -->
+                    <!--     <div class="plugin-header"> -->
+                    <!--         <span class="drag-handle" draggable="true">≡</span> -->
+                    <!--         <span class="plugin-name">Reverb</span> -->
+                    <!--         <button class="bypass-btn">Bypass</button> -->
+                    <!--         <button class="remove-btn">×</button> -->
+                    <!--     </div> -->
+                    <!--     <div class="plugin-content"> -->
+                    <!--         <div class="plugin-controls"> -->
+                    <!--             <div class="control-row"> -->
+                    <!--                 <label>Mix</label> -->
+                    <!--                 <input type="range" min="0" max="1" step="0.05" value="0.3" /> -->
+                    <!--             </div> -->
+                    <!--             <div class="control-row"> -->
+                    <!--                 <label>Decay</label> -->
+                    <!--                 <input type="range" min="0.1" max="10" step="0.1" value="2" /> -->
+                    <!--             </div> -->
+                    <!--             <div class="control-row"> -->
+                    <!--                 <label>PreDelay</label> -->
+                    <!--                 <input type="range" min="0" max="0.1" step="0.01" value="0.02" /> -->
+                    <!--             </div> -->
+                    <!--         </div> -->
+                    <!--     </div> -->
+                    <!-- </div> -->
                     
                     <div class="add-plugin">
                         <select id="add-plugin-select">
@@ -475,14 +127,146 @@
         <section class="tracks-section">
             <div class="track" data-track="1">
                 <div class="track-header">
-                    <div>Track 1</div>
-                    <button class="mute">M</button>
-                    <button class="solo">S</button>
+                    <div class="track-name">Track 1</div>
+                    <button class="track-mute">M</button>
+                    <button class="track-solo">S</button>
+                    <button class="track-clear">C</button>
                 </div>
-                <input type="range" class="volume-slider" orient="vertical" />
-                <div class="track-recorder">
-                    <button class="track-stop">Stop</button>
-                    <button class="track-record">Record</button>
+                <div class="track-content">
+                    <div class="track-measure">
+                        <select class="loop-length-select">
+                            <option value="free">FREE</option>
+                            <option value="1/4">1/4</option>
+                            <option value="2/4">2/4</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bar</option>
+                            <option value="4">4 bar</option>
+                        </select>
+                    </div>
+                    <div class="track-buttons">
+                        <button class="track-record" title="Record">●</button>
+                        <button class="track-play" title="Play">▶</button>
+                    </div>
+                    <div class="track-volume">
+                        <label>Volume</label>
+                        <input type="range" class="volume-slider"  min="0" max="3" step="0.1" value="1"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="track" data-track="2">
+                <div class="track-header">
+                    <div class="track-name">Track 2</div>
+                    <button class="track-mute">M</button>
+                    <button class="track-solo">S</button>
+                    <button class="track-clear">C</button>
+                </div>
+                <div class="track-content">
+                    <div class="track-measure">
+                        <select class="loop-length-select">
+                            <option value="free">FREE</option>
+                            <option value="1/4">1/4</option>
+                            <option value="2/4">2/4</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bar</option>
+                            <option value="4">4 bar</option>
+                        </select>
+                    </div>
+                    <div class="track-buttons">
+                        <button class="track-record" title="Record">●</button>
+                        <button class="track-play" title="Play">▶</button>
+                    </div>
+                    <div class="track-volume">
+                        <label>Volume</label>
+                        <input type="range" class="volume-slider"  min="0" max="3" step="0.1" value="1"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="track" data-track="3">
+                <div class="track-header">
+                    <div class="track-name">Track 3</div>
+                    <button class="track-mute">M</button>
+                    <button class="track-solo">S</button>
+                    <button class="track-clear">C</button>
+                </div>
+                <div class="track-content">
+                    <div class="track-measure">
+                        <select class="loop-length-select">
+                            <option value="free">FREE</option>
+                            <option value="1/4">1/4</option>
+                            <option value="2/4">2/4</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bar</option>
+                            <option value="4">4 bar</option>
+                        </select>
+                    </div>
+                    <div class="track-buttons">
+                        <button class="track-record" title="Record">●</button>
+                        <button class="track-play" title="Play">▶</button>
+                    </div>
+                    <div class="track-volume">
+                        <label>Volume</label>
+                        <input type="range" class="volume-slider"  min="0" max="3" step="0.1" value="1"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="track" data-track="4">
+                <div class="track-header">
+                    <div class="track-name">Track 4</div>
+                    <button class="track-mute">M</button>
+                    <button class="track-solo">S</button>
+                    <button class="track-clear">C</button>
+                </div>
+                <div class="track-content">
+                    <div class="track-measure">
+                        <select class="loop-length-select">
+                            <option value="free">FREE</option>
+                            <option value="1/4">1/4</option>
+                            <option value="2/4">2/4</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bar</option>
+                            <option value="4">4 bar</option>
+                        </select>
+                    </div>
+                    <div class="track-buttons">
+                        <button class="track-record" title="Record">●</button>
+                        <button class="track-play" title="Play">▶</button>
+                    </div>
+                    <div class="track-volume">
+                        <label>Volume</label>
+                        <input type="range" class="volume-slider"  min="0" max="3" step="0.1" value="1"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="track" data-track="5">
+                <div class="track-header">
+                    <div class="track-name">Track 5</div>
+                    <button class="track-mute">M</button>
+                    <button class="track-solo">S</button>
+                    <button class="track-clear">C</button>
+                </div>
+                <div class="track-content">
+                    <div class="track-measure">
+                        <select class="loop-length-select">
+                            <option value="free">FREE</option>
+                            <option value="1/4">1/4</option>
+                            <option value="2/4">2/4</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bar</option>
+                            <option value="4">4 bar</option>
+                        </select>
+                    </div>
+                    <div class="track-buttons">
+                        <button class="track-record" title="Record">●</button>
+                        <button class="track-play" title="Play">▶</button>
+                    </div>
+                    <div class="track-volume">
+                        <label>Volume</label>
+                        <input type="range" class="volume-slider"  min="0" max="3" step="0.1" value="1"/>
+                    </div>
                 </div>
             </div>
         </section>

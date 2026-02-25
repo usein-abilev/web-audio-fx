@@ -1,41 +1,117 @@
+const STATE = {
+    IDLE: "IDLE",
+    PREPARE_REC: "PREPARE_REC",
+    RECORDING: "RECORDING",
+    PREPARE_PLAY: "PREPARE_PLAY",
+    PLAYING: "PLAYING",
+    PREPARE_DUB: "PREPARE_DUB",
+    OVERDUBBING: "OVERDUBBING"
+};
 
 class RecordingProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();
 
-        this.channels = options.processorOptions?.channels || 0;
-        this.sampleRate = options.processorOptions?.sampleRate || 0;
+        this.channels = options.processorOptions?.channels || 2;
+        this.sampleRate = options.processorOptions?.sampleRate || 44100;
         this.maxRecordingFrames = options.processorOptions?.maxRecordingFrames || 0;
+        this.latencyFrames = Math.floor((options.processorOptions?.latencyFrames || 0) * this.sampleRate);
 
-        this.recording = false;
-        this.recordingOffset = 0;
-        this.recordingBuffer = Array.from(
+        this.state = STATE.IDLE;
+        this.loopLength = 0;
+        this.currentIndex = 0;
+        this.scheduledTime = 0;
+
+        this.buffer = Array.from(
             { length: this.channels },
             () => new Float32Array(this.maxRecordingFrames)
         );
 
         this.port.onmessage = (event) => {
-            if (event.type === "START_RECORDING") {
+            const { command, time, length } = event.data;
+
+            console.log("[AudioProcessor] command:", command);
+            if (command === "START_RECORDING") {
+                this.state = STATE.PREPARE_REC;
+                this.scheduledTime = time;
+                this.currentIndex = 0;
+            } else if (command === "STOP_RECORDING") {
+                this.state = STATE.PREPARE_PLAY;
+                this.scheduledTime = time;
+                if (length) this.loopLength = length;
+            } else if (command === "START_OVERDUB") {
+                this.state = STATE.PREPARE_DUB;
+                this.scheduledTime = time;
+            } else if (command === "CLEAR") {
+                this.state = STATE.IDLE;
+                this.loopLength = 0;
+                this.currentIndex = 0;
+                this.scheduledTime = 0;
+                this.buffer.forEach((buffer) => {
+                    buffer.fill(0);
+                });
             }
-            console.log("[RecordingProcessor] onmessage data:", event);
         };
     }
 
     process(inputs, outputs, params) {
-        for (let i = 0; i < 1; i++) {
-            for (let channel = 0; channel < this.channels; channel++) {
-                const inputChannel = inputs[i][channel];
-                const outputChannel = outputs[i][channel];
+        const input = inputs[0];
+        const output = outputs[0];
 
-                // inputChannel.length always 128 samples
-                for (let sample = 0; sample < inputChannel.length; sample++) {
-                    const current = inputChannel[sample];
-                    if (this.recording) {
-                        this.recordingBuffer[channel][this.recordingOffset + sample] = current;
+        if (!input || !input.length) return true;
+
+        const channels = Math.min(input.length, output.length, this.channels);
+        const frames = input[0].length;
+
+        for (let frame = 0; frame < frames; frame++) {
+            const currentSampleTime = currentTime + (frame / this.sampleRate);
+
+            if (this.scheduledTime > 0 && currentSampleTime >= this.scheduledTime) {
+                if (this.state === STATE.PREPARE_REC) this.state = STATE.RECORDING;
+                if (this.state === STATE.PREPARE_PLAY) {
+                    this.state = STATE.PLAYING;
+                    if (!this.loopLength) {
+                        this.loopLength = this.currentIndex;
+                        this.port.postMessage({
+                            event: "FREE_LOOP_SET",
+                            loopDuration: this.loopLength / this.sampleRate,
+                        });
                     }
+                }
+                if (this.state === STATE.PREPARE_DUB) this.state = STATE.OVERDUBBING;
 
-                    // keep stream unchanged
-                    outputChannel[sample] = current;
+                this.scheduledTime = 0;
+            }
+
+            for (let channel = 0; channel < channels; channel++) {
+                const inSample = input[channel][frame];
+                let outSample = 0;
+
+                let writeIndex = this.currentIndex;
+                let readIndex = this.currentIndex;
+
+                if (this.state === STATE.RECORDING) {
+                    if (writeIndex >= 0 && writeIndex < this.maxRecordingFrames) {
+                        this.buffer[channel][writeIndex] = inSample;
+                    }
+                } else if (this.state === STATE.PLAYING) {
+                    readIndex += this.latencyFrames;
+                    if (this.loopLength > 0) {
+                        readIndex %= this.loopLength;
+                    }
+                    outSample = this.buffer[channel][readIndex];
+                } else if (this.state === STATE.OVERDUBBING) {
+                    this.buffer[channel][writeIndex] += inSample;
+                }
+
+                output[channel][frame] = outSample;
+            }
+
+            if (this.state !== STATE.IDLE && this.state !== STATE.PREPARE_REC) {
+                this.currentIndex++;
+
+                if (this.loopLength > 0 && this.currentIndex >= this.loopLength) {
+                    this.currentIndex = 0;
                 }
             }
         }

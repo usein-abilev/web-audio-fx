@@ -6,8 +6,6 @@ export class InputNode extends AudioBaseNode {
     private channelMerger: ChannelMergerNode;
     private stereoPanner: StereoPannerNode;
 
-    // private panKnob: HTMLElement;
-
     private mono = false;
     private aliasName: string = "Input Node";
     private params: AudioNodeParam[];
@@ -27,25 +25,6 @@ export class InputNode extends AudioBaseNode {
         this.stereoPanner = audioContext.createStereoPanner();
         this.setMono(false);
         this.stereoPanner.connect(this.output);
-        // this.panKnob = builder.knob(
-        //     "Pan",
-        //     (value: number) => {
-        //         this.stereoPanner.pan.setValueAtTime(value * 2 - 1, this.audioContext.currentTime),
-        //             console.log("stereo panner:", this.stereoPanner.pan.value, value);
-        //     },
-        //     {
-        //         max: 1,
-        //         defaultValue: 0.5,
-        //         value: (this.stereoPanner.pan.value + 1) / 2,
-        //         formatter: (v) => {
-        //             let prefix = "C";
-        //             if (v < 0.5) prefix = "L";
-        //             else if (v > 0.5) prefix = "R";
-        //             return `${Math.abs(v * 200 - 100).toFixed(0)} ${prefix}`;
-        //         },
-        //     }
-        // );
-        //
         this.params = [
             {
                 id: "input_gain",
@@ -98,17 +77,5 @@ export class InputNode extends AudioBaseNode {
     getParams(): AudioNodeParam[] {
         return this.params;
     }
-
-    // render(parent: HTMLElement) {
-    //     parent.innerHTML = "";
-    //
-    //     const container = builder.createContainer(
-    //         builder.checkbox("Mono: ", (value: boolean) => this.setMono(value), { defaultValue: this.mono }),
-    //         this.panKnob,
-    //         this.inputSlider,
-    //         this.outputSlider,
-    //     );
-    //     parent.append(container);
-    // }
 }
 
