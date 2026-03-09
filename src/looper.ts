@@ -1,11 +1,10 @@
-"use strict";
-
 import { AudioScheduler } from "./clock";
 import { InputNode } from "./nodes/input.node";
 import AudioBaseNode from "./nodes/node";
 import PLUGINS from "./plugins";
 import type { AudioPlugin } from "./plugins/plugin";
 import { disconnectAudioNodesSafe } from "./utils";
+import { playMetronome } from "./metronome";
 
 const AUDIO_SAMPLE_RATE = 44_100;
 
@@ -97,22 +96,10 @@ function initializeMasterChannel() {
 
 /** 
  * Runs each tick of the AudioScheduler
-*/
+ */
 function onSchedulerTick(beat: number, time: number) {
     if (metronomeToggle.checked) {
-        const osc = audioContext.createOscillator();
-        const envelope = audioContext.createGain();
-
-        osc.connect(envelope);
-        envelope.connect(audioContext.destination);
-
-        osc.frequency.value = (beat === 0) ? 1000 : 800;
-
-        envelope.gain.setValueAtTime(1, time);
-        envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-
-        osc.start(time);
-        osc.stop(time + 0.1);
+        playMetronome(audioContext, beat, time);
     }
 
     scheduleTrackEvents(beat, time);
@@ -131,7 +118,6 @@ function scheduleTrackEvents(beat: number, time: number) {
                 track.countInBeatsLeft = 0;
             }
         }
-        console.log("Current Beat:", beat);
         if (beat === 0) {
             if (track.state === TrackState.PREPARE_REC) {
                 track.node.port.postMessage({ command: TrackWorkletCommand.START_RECORDING, time });
@@ -201,12 +187,6 @@ function initializeTracks(inputBusNode: AudioNode) {
 
     const onTrackWorkletMessage = (trackId: number, event: any) => {
         console.log("onTrackWorkletMessage message:", trackId, event);
-        // if (event.data.event === "FREE_LOOP_SET") {
-        //     const { loopDuration } = event.data;
-        //     const newBPM = (60 / loopDuration) * 4;
-        //     audioScheduler.setBPM(newBPM);
-        //     audioScheduler.start();
-        // }
     }
 
     const attachTrackEvents = (trackDiv: HTMLDivElement, trackId: number) => {

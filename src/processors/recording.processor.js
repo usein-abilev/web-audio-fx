@@ -28,7 +28,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
         );
 
         this.port.onmessage = (event) => {
-            const { command, time, length } = event.data;
+            const { command, time } = event.data;
 
             console.log("[AudioProcessor] command:", command);
             if (command === "START_RECORDING") {
@@ -38,7 +38,16 @@ class RecordingProcessor extends AudioWorkletProcessor {
             } else if (command === "STOP_RECORDING") {
                 this.state = STATE.PREPARE_PLAY;
                 this.scheduledTime = time;
-                if (length) this.loopLength = length;
+                if (!this.loopLength) {
+                    this.loopLength = this.currentIndex;
+                    this.port.postMessage({
+                        event: "BUFFER_DATA",
+                        buffer: this.buffer,
+                        loopLength: this.loopLength,
+                        sampleRate: this.sampleRate,
+                        channels: this.channels
+                    });
+                }
             } else if (command === "START_OVERDUB") {
                 this.state = STATE.PREPARE_DUB;
                 this.scheduledTime = time;
@@ -50,6 +59,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
                 this.buffer.forEach((buffer) => {
                     buffer.fill(0);
                 });
+            } else if (command === "GET_BUFFER") {
             }
         };
     }
@@ -68,16 +78,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
 
             if (this.scheduledTime > 0 && currentSampleTime >= this.scheduledTime) {
                 if (this.state === STATE.PREPARE_REC) this.state = STATE.RECORDING;
-                if (this.state === STATE.PREPARE_PLAY) {
-                    this.state = STATE.PLAYING;
-                    if (!this.loopLength) {
-                        this.loopLength = this.currentIndex;
-                        this.port.postMessage({
-                            event: "FREE_LOOP_SET",
-                            loopDuration: this.loopLength / this.sampleRate,
-                        });
-                    }
-                }
+                if (this.state === STATE.PREPARE_PLAY) this.state = STATE.PLAYING;
                 if (this.state === STATE.PREPARE_DUB) this.state = STATE.OVERDUBBING;
 
                 this.scheduledTime = 0;

@@ -7,9 +7,8 @@ const calcRMS = (data: Float32Array) => {
     return Math.sqrt(data.reduce((a, c) => a + c * c, 0) / data.length);
 }
 
-export const createVolumeMeter = (audioContext: AudioContext) => {
-    const canvas = document.getElementById("audio-volume-meter")! as HTMLCanvasElement;
-    const ctx = canvas.getContext("2d")!;
+export const createVolumeMeter = (audioContext: AudioContext, canvasElement: HTMLCanvasElement) => {
+    const ctx = canvasElement.getContext("2d")!;
 
     const leftAnalyser = audioContext.createAnalyser();
     leftAnalyser.fftSize = METER_FFT_SIZE;
@@ -34,17 +33,17 @@ export const createVolumeMeter = (audioContext: AudioContext) => {
         const orangePercent = (Math.min(orangeThreshold, dB) + minDecibel) / minDecibel;
         const redPercent = (Math.min(0, dB) + minDecibel) / minDecibel;
 
-        const greenBar = canvas.height - greenPercent * canvas.height;
-        const orangeBar = canvas.height - orangePercent * canvas.height;
-        const redBar = canvas.height - redPercent * canvas.height;
+        const greenBar = canvasElement.height - greenPercent * canvasElement.height;
+        const orangeBar = canvasElement.height - orangePercent * canvasElement.height;
+        const redBar = canvasElement.height - redPercent * canvasElement.height;
 
-        const barWidth = canvas.width / 2 + barPadding * (channel * 2 - 1);
+        const barWidth = canvasElement.width / 2 + barPadding * (channel * 2 - 1);
         ctx.fillStyle = "#ff0000";
-        ctx.fillRect(channel * barWidth, redBar, canvas.width / 2, canvas.height);
+        ctx.fillRect(channel * barWidth, redBar, canvasElement.width / 2, canvasElement.height);
         ctx.fillStyle = "#ffbb4a";
-        ctx.fillRect(channel * barWidth, orangeBar, canvas.width / 2, canvas.height);
+        ctx.fillRect(channel * barWidth, orangeBar, canvasElement.width / 2, canvasElement.height);
         ctx.fillStyle = "#50bb4a";
-        ctx.fillRect(channel * barWidth, greenBar, canvas.width / 2, canvas.height);
+        ctx.fillRect(channel * barWidth, greenBar, canvasElement.width / 2, canvasElement.height);
     }
 
     const renderVolumeMetrics = () => {
@@ -53,11 +52,11 @@ export const createVolumeMeter = (audioContext: AudioContext) => {
         leftAnalyser.getFloatTimeDomainData(leftData);
         rightAnalyser.getFloatTimeDomainData(rightData);
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         renderMetricFor(leftData, 0);
         renderMetricFor(rightData, 1);
 
-        const yOffset = canvas.height / (minDecibel / 5);
+        const yOffset = canvasElement.height / (minDecibel / 5);
         for (let i = 0; i <= minDecibel / 5; i++) {
             const y = i * yOffset;
             ctx.fillStyle = "#fefefe";
@@ -78,8 +77,8 @@ export const createVolumeMeter = (audioContext: AudioContext) => {
             node.connect(splitter);
         },
         resize(width: number, height: number) {
-            canvas.width = width;
-            canvas.height = height;
+            canvasElement.width = width;
+            canvasElement.height = height;
         },
         getWidth: () => CANVAS_WIDTH,
     }

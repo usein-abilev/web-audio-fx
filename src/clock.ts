@@ -54,6 +54,10 @@ export class AudioScheduler {
         this.bpm = value;
     }
 
+    getBPM() {
+        return this.bpm
+    }
+
     /**
      * Starts the scheduler. The `onTick` callback will be invoked on each beat.
      */

@@ -183,7 +183,8 @@ window.addEventListener("load", async () => {
     const canvas = document.querySelector("canvas#sample-viewer")! as HTMLCanvasElement;
     const canvasContext = canvas.getContext("2d")!;
 
-    const volumeMeter = createVolumeMeter(state.audioContext);
+    const volumeMeterCanvas = document.getElementById("audio-volume-meter")! as HTMLCanvasElement;
+    const volumeMeter = createVolumeMeter(state.audioContext, volumeMeterCanvas);
 
     let cursorOffsetX = 0; // set on mouse move event
     let scaleCursorOffsetX = 0; // set on mouse wheel event

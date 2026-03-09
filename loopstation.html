@@ -9,11 +9,9 @@
 
     <body>
         <header>
-            <div class="bpm-section">
                 <label>Tempo: <input id="bpm-input" type="number" value="80" min="20" max="250" /></label>
                 <label>Metronome: <input id="metronome-toggle" type="checkbox" /></label>
-                <label>Input Monitoring: <input id="monitoring-toggle" type="checkbox" /></label>
-            </div>
+                <label>Input Monitoring (Post FX): <input id="monitoring-toggle" type="checkbox" /></label>
             <div class="master-controls">
                 <button class="play-all">▶</button>
                 <button class="stop-all">■</button>
@@ -24,7 +22,7 @@
 
         <section class="input-sections">
             <div class="section-header">
-                <p>Input FX Chain</p>
+                <div class="title">Input FX Chain</div>
             </div>
             <div class="fx-chain-container">
                 <div class="input-controls">
