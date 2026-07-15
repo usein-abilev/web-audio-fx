@@ -16,6 +16,7 @@ export type TimelineClip = {
     trackId: number;
     duration: MusicalTime;
     offset: MusicalTime;
+    volume: number;
 };
 
 export type TimelineTrack = {
@@ -185,6 +186,7 @@ class TimelineState {
                 bar: Math.floor(offsetBeats / 4),
                 beat: offsetBeats % 4,
             },
+            volume: 1.0,
         };
         this.clips = [...this.clips, clip];
         return clip;
@@ -196,6 +198,10 @@ class TimelineState {
 
     moveClip(id: number, newTime: MusicalTime, newTrackId: number): void {
         this.clips = this.clips.map((c) => (c.id === id ? { ...c, time: newTime, trackId: newTrackId } : c));
+    }
+
+    setClipVolume(id: number, volume: number): void {
+        this.clips = this.clips.map((c) => (c.id === id ? { ...c, volume: Math.max(0, Math.min(1, volume)) } : c));
     }
 
     resizeClip(id: number, opts: { duration?: MusicalTime; offset?: MusicalTime; time?: MusicalTime }): void {
@@ -436,13 +442,17 @@ class TimelineState {
 
     play(): void {
         if (!this.audioContext) return;
+        if (this.looping) return;
         if (this.audioContext.state === "suspended") {
             this.audioContext.resume();
         }
 
+        const startBeat = this.playbackPosition;
+        const startOffsetSeconds = (startBeat * 60) / this.bpm;
+
         this.stop();
         this.looping = true;
-        this.playbackStartTime = this.audioContext.currentTime;
+        this.playbackStartTime = this.audioContext.currentTime - startOffsetSeconds;
         this.scheduleAllClips();
         this.startCursorAnimation();
     }
@@ -481,7 +491,6 @@ class TimelineState {
     private async scheduleAllClips(): Promise<void> {
         if (!this.audioContext) return;
 
-        const now = this.audioContext.currentTime;
         const totalDuration = this.getTotalDurationSeconds();
 
         const fetchPromises = this.clips.map(async (clip) => {
@@ -493,7 +502,7 @@ class TimelineState {
         await Promise.allSettled(fetchPromises);
 
         for (const clip of this.clips) {
-            this.scheduleClip(clip, now, totalDuration);
+            this.scheduleClip(clip, this.playbackStartTime, totalDuration);
         }
     }
 
@@ -511,13 +520,21 @@ class TimelineState {
 
         const source = this.audioContext.createBufferSource();
         source.buffer = buffer;
-        source.connect(trackState.sinkNode.input);
+
+        const clipGain = this.audioContext.createGain();
+        clipGain.gain.value = clip.volume;
+        source.connect(clipGain);
+        // clipGain.connect(trackState.sinkNode.input);
+        trackState.sinkNode.receiveInput(clipGain);
 
         const clipStart = this.musicalTimeToSeconds(clip.time);
         const clipDuration = this.musicalTimeToSeconds(clip.duration);
 
         const offsetSeconds = this.musicalTimeToSeconds(clip.offset);
         const startAt = referenceTime + clipStart;
+
+        if (startAt < this.audioContext.currentTime) return;
+
         source.start(startAt, offsetSeconds, clipDuration);
 
         this.activeSources.push(source);

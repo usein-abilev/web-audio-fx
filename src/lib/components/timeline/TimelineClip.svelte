@@ -49,6 +49,10 @@
     let resizeStartClipOffset = $state({ bar: 0, beat: 0 });
     let shiftHeld = $state(false);
 
+    let isAdjustingVolume = $state(false);
+    let volumeStartMouseY = $state(0);
+    let volumeStartValue = $state(0);
+
     function beatsToMusical(b: number) {
         const clamped = Math.max(0, b);
         return { bar: Math.floor(clamped / 4), beat: Math.round((clamped % 4) * 100) / 100 };
@@ -149,6 +153,32 @@
         document.removeEventListener("mousemove", handleResizeMove);
         document.removeEventListener("mouseup", handleResizeEnd);
     }
+
+    const waveHeight = $derived(timeline.trackHeight - 24);
+
+    function handleVolumeStart(e: MouseEvent) {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        e.preventDefault();
+        isAdjustingVolume = true;
+        volumeStartMouseY = e.clientY;
+        volumeStartValue = clip.volume;
+        document.addEventListener("mousemove", handleVolumeMove);
+        document.addEventListener("mouseup", handleVolumeEnd);
+    }
+
+    function handleVolumeMove(e: MouseEvent) {
+        if (!isAdjustingVolume) return;
+        const deltaY = volumeStartMouseY - e.clientY;
+        const delta = deltaY / waveHeight;
+        timeline.setClipVolume(clip.id, volumeStartValue + delta);
+    }
+
+    function handleVolumeEnd() {
+        isAdjustingVolume = false;
+        document.removeEventListener("mousemove", handleVolumeMove);
+        document.removeEventListener("mouseup", handleVolumeEnd);
+    }
 </script>
 
 <svelte:window onkeyup={() => (shiftHeld = false)} onkeydown={(e) => (shiftHeld = e.shiftKey)} />
@@ -180,6 +210,31 @@
     <g transform="translate({x}, {y + 20})">
         <path d={waveformPath} stroke="var(--text-primary)" stroke-width="1" fill="none" opacity="0.6" />
     </g>
+
+    <!-- Volume fill -->
+    <rect
+        {x}
+        y={y + 20 + waveHeight * (1 - clip.volume)}
+        width={clipWidth}
+        height={waveHeight * clip.volume}
+        fill="var(--accent-primary)"
+        opacity="0.15"
+        pointer-events="none"
+    />
+
+    <!-- Volume handle -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <line
+        x1={x}
+        y1={y + 20 + waveHeight * (1 - clip.volume)}
+        x2={x + clipWidth}
+        y2={y + 20 + waveHeight * (1 - clip.volume)}
+        stroke="var(--accent-primary)"
+        stroke-width="2"
+        style="cursor: ns-resize;"
+        onmousedown={handleVolumeStart}
+    />
 
     <!-- Resize handles -->
     <rect

@@ -10,13 +10,15 @@
 
     let { data } = $props();
 
+    let isPlaying = $derived(timeline.isPlaying);
+
     onMount(() => {
         timeline.init();
         timeline.registerSamples(data.samples);
     });
 
     $effect(() => {
-        if (timeline.isPlaying) {
+        if (isPlaying) {
             timeline.play();
         } else {
             timeline.stop();

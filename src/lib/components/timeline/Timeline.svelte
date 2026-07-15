@@ -103,17 +103,51 @@
         const isMulti = ui.selectedClipIds.size > 1;
         const trackCount = timeline.tracks.length;
 
+        let effectiveDeltaTrack = deltaTrack;
+        if (isMulti) {
+            let minProposed = Infinity;
+            let maxProposed = -Infinity;
+            for (const id of ui.selectedClipIds) {
+                const origTrack = dragStartClipTracks.get(id);
+                if (origTrack === undefined) continue;
+                const proposed = origTrack + deltaTrack;
+                if (proposed < minProposed) minProposed = proposed;
+                if (proposed > maxProposed) maxProposed = proposed;
+            }
+            if (minProposed < 0) {
+                effectiveDeltaTrack = deltaTrack - minProposed;
+            } else if (maxProposed > trackCount - 1) {
+                effectiveDeltaTrack = deltaTrack - (maxProposed - (trackCount - 1));
+            }
+        }
+
+        let effectiveDelta = deltaX;
+        if (isMulti) {
+            let minOrigX = Infinity;
+            for (const id of ui.selectedClipIds) {
+                const t = dragStartClipPositions.get(id);
+                if (t !== undefined) {
+                    const x = timeline.musicalTimeToX(t);
+                    if (x < minOrigX) minOrigX = x;
+                }
+            }
+            if (minOrigX !== Infinity) {
+                const rawMinX = minOrigX + deltaX;
+                if (rawMinX < 0) effectiveDelta = deltaX - rawMinX;
+            }
+        }
+
         for (const id of ui.selectedClipIds) {
             const origTime = dragStartClipPositions.get(id);
             const origTrack = dragStartClipTracks.get(id);
             if (origTime === undefined || origTrack === undefined) continue;
 
             const origX = timeline.musicalTimeToX(origTime);
-            const newX = Math.max(0, origX + deltaX);
+            const newX = Math.max(0, origX + effectiveDelta);
             const newTime = shiftHeld ? timeline.xToMusicalTimeRaw(newX) : timeline.xToMusicalTime(newX);
 
             const targetTrack = isMulti
-                ? Math.min(trackCount - 1, Math.max(0, origTrack + deltaTrack))
+                ? Math.min(trackCount - 1, Math.max(0, origTrack + effectiveDeltaTrack))
                 : currentTrackId;
 
             timeline.moveClip(id, newTime, targetTrack);
@@ -124,6 +158,36 @@
         isDragging = false;
         document.removeEventListener("mousemove", handleDragMove);
         document.removeEventListener("mouseup", handleDragEnd);
+    }
+
+    let isScrubbing = $state(false);
+
+    function handleHeaderMouseDown(e: MouseEvent) {
+        if (e.button !== 0) return;
+        isScrubbing = true;
+        setPlayheadFromMouse(e);
+        document.addEventListener("mousemove", handleHeaderMouseMove);
+        document.addEventListener("mouseup", handleHeaderMouseUp);
+    }
+
+    function handleHeaderMouseMove(e: MouseEvent) {
+        if (!isScrubbing) return;
+        setPlayheadFromMouse(e);
+    }
+
+    function handleHeaderMouseUp() {
+        isScrubbing = false;
+        document.removeEventListener("mousemove", handleHeaderMouseMove);
+        document.removeEventListener("mouseup", handleHeaderMouseUp);
+    }
+
+    function setPlayheadFromMouse(e: MouseEvent) {
+        const headerSvg = document.querySelector(".grid-header-svg") as SVGSVGElement | null;
+        if (!headerSvg) return;
+        const rect = headerSvg.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const beats = Math.max(0, x / timeline.beatWidth);
+        timeline.playbackPosition = beats;
     }
 
     function handleGridMouseDown(e: MouseEvent) {
@@ -277,7 +341,7 @@
 
             <!-- Grid header: sticky top, scrolls horizontally -->
             <div class="grid-header">
-                <svg width={gridWidth} height={timeline.headerHeight} class="grid-header-svg">
+                <svg width={gridWidth} height={timeline.headerHeight} class="grid-header-svg" onmousedown={handleHeaderMouseDown}>
                     <!-- Bar background alternation -->
                     {#each Array.from({ length: totalBars }, (_, i) => i) as i (i)}
                         {#if i % 2 === 0}
