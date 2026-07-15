@@ -38,6 +38,10 @@
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Shift") shiftHeld = true;
             if (e.key === "Control" || e.key === "Meta") ctrlHeld = true;
+            if (e.code === "Space") {
+                timeline.stop();
+                timeline.play();
+            }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
             if (e.key === "Shift") shiftHeld = false;
@@ -341,7 +345,12 @@
 
             <!-- Grid header: sticky top, scrolls horizontally -->
             <div class="grid-header">
-                <svg width={gridWidth} height={timeline.headerHeight} class="grid-header-svg" onmousedown={handleHeaderMouseDown}>
+                <svg
+                    width={gridWidth}
+                    height={timeline.headerHeight}
+                    class="grid-header-svg"
+                    onmousedown={handleHeaderMouseDown}
+                >
                     <!-- Bar background alternation -->
                     {#each Array.from({ length: totalBars }, (_, i) => i) as i (i)}
                         {#if i % 2 === 0}

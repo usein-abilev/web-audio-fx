@@ -522,9 +522,7 @@ class TimelineState {
         source.buffer = buffer;
 
         const clipGain = this.audioContext.createGain();
-        clipGain.gain.value = clip.volume;
         source.connect(clipGain);
-        // clipGain.connect(trackState.sinkNode.input);
         trackState.sinkNode.receiveInput(clipGain);
 
         const clipStart = this.musicalTimeToSeconds(clip.time);
@@ -534,6 +532,16 @@ class TimelineState {
         const startAt = referenceTime + clipStart;
 
         if (startAt < this.audioContext.currentTime) return;
+
+        const FADE_DURATION = 0.01;
+        const fadeTime = Math.min(FADE_DURATION, clipDuration / 2);
+        const endAt = startAt + clipDuration;
+
+        // fade in and out
+        clipGain.gain.setValueAtTime(0.001, startAt);
+        clipGain.gain.exponentialRampToValueAtTime(clip.volume, startAt + fadeTime);
+        clipGain.gain.setValueAtTime(clip.volume, endAt - fadeTime);
+        clipGain.gain.exponentialRampToValueAtTime(0.001, endAt);
 
         source.start(startAt, offsetSeconds, clipDuration);
 
