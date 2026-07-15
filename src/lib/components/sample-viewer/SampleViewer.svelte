@@ -8,7 +8,8 @@
     let isLoading = $state(false);
 
     $effect(() => {
-        const clipId = ui.selectedClipId;
+        const ids = [...ui.selectedClipIds];
+        const clipId = ids.length > 0 ? ids[0] : null;
         if (clipId === null) {
             audioBuffer = null;
             return;
@@ -58,7 +59,7 @@
             {:else if audioBuffer}
                 <WaveformDisplay {audioBuffer} />
                 <EditorControls {audioBuffer} audioContext={timeline.context} />
-            {:else if ui.selectedClipId !== null}
+            {:else if ui.selectedClipIds.size > 0}
                 <div class="empty">Failed to load sample</div>
             {:else}
                 <div class="empty">Select a clip to view</div>

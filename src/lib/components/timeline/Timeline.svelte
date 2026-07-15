@@ -7,10 +7,8 @@
     import RangeSlider from "$lib/components/ui/RangeSlider.svelte";
 
     let {
-        onClipClick,
         onTimelineClick,
     }: {
-        onClipClick?: (clipId: number) => void;
         onTimelineClick?: (time: MusicalTime, trackId: number) => Promise<number | null>;
     } = $props();
 
@@ -23,10 +21,34 @@
     const masterY = $derived(timeline.tracks.length * timeline.trackHeight);
 
     let isDragging = $state(false);
-    let dragClipId = $state<number | null>(null);
     let dragStartMouseX = $state(0);
-    let dragStartClipTime = $state<MusicalTime>({ bar: 0, beat: 0 });
+    let dragStartClipPositions = $state<Map<number, MusicalTime>>(new Map());
+    let dragStartClipTracks = $state<Map<number, number>>(new Map());
     let shiftHeld = false;
+    let ctrlHeld = false;
+
+    let isMarquee = $state(false);
+    let marqueeStartX = $state(0);
+    let marqueeStartY = $state(0);
+    let marqueeCurrentX = $state(0);
+    let marqueeCurrentY = $state(0);
+
+    $effect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Shift") shiftHeld = true;
+            if (e.key === "Control" || e.key === "Meta") ctrlHeld = true;
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === "Shift") shiftHeld = false;
+            if (e.key === "Control" || e.key === "Meta") ctrlHeld = false;
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("keyup", handleKeyUp);
+        };
+    });
 
     function screenToSvg(clientX: number, clientY: number): { x: number; y: number } {
         if (!gridSvgEl) return { x: 0, y: 0 };
@@ -40,37 +62,57 @@
     function startDrag(clipId: number, mouseSvgX: number, mouseSvgY: number) {
         const clip = timeline.clips.find((c) => c.id === clipId);
         if (!clip) return;
-        ui.selectedSampleId = clip.sampleId;
+
+        if (!ui.isClipSelected(clipId)) {
+            ui.selectClip(clipId, false);
+            ui.selectedSampleId = clip.sampleId;
+        }
 
         isDragging = true;
-        dragClipId = clipId;
         dragStartMouseX = mouseSvgX;
-        dragStartClipTime = { ...clip.time };
+
+        const positions = new Map<number, MusicalTime>();
+        const tracks = new Map<number, number>();
+        for (const id of ui.selectedClipIds) {
+            const c = timeline.clips.find((cl) => cl.id === id);
+            if (c) {
+                positions.set(id, { ...c.time });
+                tracks.set(id, c.trackId);
+            }
+        }
+        dragStartClipPositions = positions;
+        dragStartClipTracks = tracks;
 
         document.addEventListener("mousemove", handleDragMove);
         document.addEventListener("mouseup", handleDragEnd);
     }
 
     function handleDragMove(e: MouseEvent) {
-        if (!isDragging || dragClipId === null) return;
+        if (!isDragging) return;
 
         const { x: currentX, y: currentY } = screenToSvg(e.clientX, e.clientY);
         const deltaX = currentX - dragStartMouseX;
 
-        const originalX = timeline.musicalTimeToX(dragStartClipTime);
-        const newX = Math.max(0, originalX + deltaX);
-
-        const newTime = shiftHeld ? timeline.xToMusicalTimeRaw(newX) : timeline.xToMusicalTime(newX);
         const newTrackId = timeline.yToTrackId(currentY);
-
         if (newTrackId === MASTER_TRACK_ID) return;
 
-        timeline.moveClip(dragClipId, newTime, newTrackId);
+        const isMulti = ui.selectedClipIds.size > 1;
+
+        for (const id of ui.selectedClipIds) {
+            const origTime = dragStartClipPositions.get(id);
+            if (!origTime) continue;
+
+            const origX = timeline.musicalTimeToX(origTime);
+            const newX = Math.max(0, origX + deltaX);
+            const newTime = shiftHeld ? timeline.xToMusicalTimeRaw(newX) : timeline.xToMusicalTime(newX);
+
+            const targetTrack = isMulti ? (dragStartClipTracks.get(id) ?? newTrackId) : newTrackId;
+            timeline.moveClip(id, newTime, targetTrack);
+        }
     }
 
     function handleDragEnd() {
         isDragging = false;
-        dragClipId = null;
         document.removeEventListener("mousemove", handleDragMove);
         document.removeEventListener("mouseup", handleDragEnd);
     }
@@ -82,6 +124,17 @@
         const { x, y } = screenToSvg(e.clientX, e.clientY);
         if (x < 0) return;
 
+        if (ctrlHeld) {
+            isMarquee = true;
+            marqueeStartX = x;
+            marqueeStartY = y;
+            marqueeCurrentX = x;
+            marqueeCurrentY = y;
+            document.addEventListener("mousemove", handleMarqueeMove);
+            document.addEventListener("mouseup", handleMarqueeEnd);
+            return;
+        }
+
         const time = timeline.xToMusicalTime(x);
         const trackId = timeline.yToTrackId(y);
 
@@ -91,33 +144,86 @@
         if (ui.selectedSampleId !== null) {
             onTimelineClick?.(time, trackId).then((clipId) => {
                 if (clipId != null) {
-                    ui.selectedClipId = clipId;
+                    ui.selectClip(clipId, false);
                     startDrag(clipId, x, y);
                 }
             });
         } else {
-            ui.selectedClipId = null;
+            ui.deselectAllClips();
         }
+    }
+
+    function handleMarqueeMove(e: MouseEvent) {
+        if (!isMarquee) return;
+        const { x, y } = screenToSvg(e.clientX, e.clientY);
+        marqueeCurrentX = x;
+        marqueeCurrentY = y;
+
+        const left = Math.min(marqueeStartX, marqueeCurrentX);
+        const right = Math.max(marqueeStartX, marqueeCurrentX);
+        const top = Math.min(marqueeStartY, marqueeCurrentY);
+        const bottom = Math.max(marqueeStartY, marqueeCurrentY);
+
+        const selected: number[] = [];
+        for (const clip of timeline.clips) {
+            const cx = timeline.musicalTimeToX(clip.time);
+            const cy = clip.trackId * timeline.trackHeight;
+            const cw = clip.duration.bar * timeline.barWidth + clip.duration.beat * timeline.beatWidth;
+            const ch = timeline.trackHeight;
+
+            if (cx < right && cx + cw > left && cy < bottom && cy + ch > top) {
+                selected.push(clip.id);
+            }
+        }
+        ui.setSelectedClips(selected);
+    }
+
+    function handleMarqueeEnd() {
+        isMarquee = false;
+        document.removeEventListener("mousemove", handleMarqueeMove);
+        document.removeEventListener("mouseup", handleMarqueeEnd);
     }
 
     function handleClipDragStart(clipId: number, mouseSvgX: number, mouseSvgY: number) {
         if (timeline.isLoadingSample) return;
-        ui.selectedClipId = clipId;
         startDrag(clipId, mouseSvgX, mouseSvgY);
     }
 
     function handleKeydown(e: KeyboardEvent) {
-        if (e.key === "Shift") shiftHeld = true;
         if (e.key === "Delete" || e.key === "Backspace") {
-            if (ui.selectedClipId !== null) {
-                timeline.removeClip(ui.selectedClipId);
-                ui.selectedClipId = null;
+            const ids = [...ui.selectedClipIds];
+            if (ids.length > 0) {
+                for (const id of ids) {
+                    timeline.removeClip(id);
+                }
+                ui.deselectAllClips();
             }
         }
-    }
 
-    function handleKeyup(e: KeyboardEvent) {
-        if (e.key === "Shift") shiftHeld = false;
+        if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+            const ids = [...ui.selectedClipIds];
+            if (ids.length > 0) {
+                timeline.copyClips(ids);
+            }
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+            const pasted = timeline.pasteClips();
+            if (pasted.length > 0) {
+                ui.deselectAllClips();
+                for (const clip of pasted) {
+                    ui.selectClip(clip.id, true);
+                }
+            }
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+            e.preventDefault();
+            ui.deselectAllClips();
+            for (const clip of timeline.clips) {
+                ui.selectClip(clip.id, true);
+            }
+        }
     }
 
     $effect(() => {
@@ -130,7 +236,6 @@
     function handleWheel(e: WheelEvent) {
         if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
-        console.log("handle wheel:", e.ctrlKey);
 
         const scrollContainer = (e.currentTarget as HTMLElement).querySelector(".timeline-scroll");
         if (!scrollContainer) return;
@@ -155,14 +260,7 @@
     }
 </script>
 
-<div
-    class="timeline-wrapper"
-    bind:this={wrapperEl}
-    onkeydown={handleKeydown}
-    onkeyup={handleKeyup}
-    tabindex="0"
-    role="application"
->
+<div class="timeline-wrapper" bind:this={wrapperEl} onkeydown={handleKeydown} tabindex="0" role="application">
     <div class="timeline-scroll">
         <div class="timeline-grid">
             <!-- Corner: sticky top-left -->
@@ -440,17 +538,30 @@
                     class:dragging={isDragging}
                     class:loading={timeline.isLoadingSample}
                     onmousedown={handleGridMouseDown}
+                    oncontextmenu={(e) => {
+                        e.preventDefault();
+                        ui.deselectAllClips();
+                    }}
                 >
                     <TimelineGrid width={gridWidth} height={totalHeight} />
                     {#each timeline.clips as clip (clip.id)}
-                        <TimelineClip
-                            {clip}
-                            selected={ui.selectedClipId === clip.id}
-                            onclick={() => onClipClick?.(clip.id)}
-                            onDragStart={handleClipDragStart}
-                        />
+                        <TimelineClip {clip} onDragStart={handleClipDragStart} />
                     {/each}
                     <PlaybackCursor height={totalHeight} />
+                    {#if isMarquee}
+                        <rect
+                            x={Math.min(marqueeStartX, marqueeCurrentX)}
+                            y={Math.min(marqueeStartY, marqueeCurrentY)}
+                            width={Math.abs(marqueeCurrentX - marqueeStartX)}
+                            height={Math.abs(marqueeCurrentY - marqueeStartY)}
+                            fill="var(--accent-primary)"
+                            fill-opacity="0.15"
+                            stroke="var(--accent-primary)"
+                            stroke-width="1"
+                            stroke-opacity="0.5"
+                            pointer-events="none"
+                        />
+                    {/if}
                 </svg>
             </div>
         </div>

@@ -34,18 +34,29 @@
             const buffer = await timeline.getBuffer(sample.id, sample.path);
             if (!buffer) return null;
 
-            const beats = buffer.duration * (timeline.bpm / 60);
-            const durationBeats = Math.max(1, Math.round(beats));
+            // Inherit duration/offset from the last selected clip if same sample
+            const lastClip =
+                ui.lastSelectedClipId !== null && timeline.clips.find((c) => c.id === ui.lastSelectedClipId);
+            if (lastClip && lastClip.sampleId === sample.id) {
+                const durationBeats = lastClip.duration.bar * 4 + lastClip.duration.beat;
+                const offsetBeats = lastClip.offset.bar * 4 + lastClip.offset.beat;
+                const clip = timeline.addClip(
+                    lastClip.sampleId,
+                    lastClip.sampleName,
+                    trackId,
+                    time,
+                    durationBeats,
+                    offsetBeats,
+                );
+                return clip.id;
+            }
 
-            const clip = timeline.addClip(sample.id, sample.name, trackId, time, durationBeats);
+            const durationBeats = Math.max(1, Math.round(buffer.duration * (timeline.bpm / 60)));
+            const clip = timeline.addClip(sample.id, sample.name, trackId, time, durationBeats, 0);
             return clip.id;
         } finally {
             timeline.isLoadingSample = false;
         }
-    }
-
-    function handleClipClick(clipId: number) {
-        ui.selectedClipId = clipId;
     }
 </script>
 
@@ -53,7 +64,7 @@
 <SampleViewer />
 <div class="content">
     <FileBrowser samples={data.samples} />
-    <Timeline onClipClick={handleClipClick} onTimelineClick={handleTimelineClick} />
+    <Timeline onTimelineClick={handleTimelineClick} />
 </div>
 <EffectsRack />
 

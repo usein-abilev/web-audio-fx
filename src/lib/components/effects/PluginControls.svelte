@@ -39,7 +39,6 @@
                     max={param.max}
                     step={param.step}
                     value={param.getValue()}
-                    dir={isEq ? "rtl" : undefined}
                     oninput={(e) => param.setValue(+(e.target as HTMLInputElement).value)}
                 />
                 <label for="param-{param.id}">{param.name}</label>
@@ -104,9 +103,12 @@
     }
 
     .control-row.eq-band input[type="range"] {
+        writing-mode: vertical-lr;
+        direction: rtl;
         width: 4px;
         height: 80px;
         min-width: 4px;
+        min-height: 100px;
     }
 
     .control-row select {

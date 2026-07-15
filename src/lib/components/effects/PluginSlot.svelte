@@ -58,6 +58,7 @@
 
 <div
     class="plugin-slot"
+    class:eq={isEq}
     class:bypassed={isBypassed}
     class:drag-over={isDragOver}
     ondragover={handleDragOver}
@@ -96,6 +97,11 @@
     .plugin-slot.drag-over {
         border-color: var(--accent-primary);
         background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-secondary));
+    }
+
+    .plugin-slot.eq {
+        min-width: 280px;
+        max-width: 320px;
     }
 
     .plugin-header {

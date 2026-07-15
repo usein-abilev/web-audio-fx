@@ -21,9 +21,7 @@
             : [],
     );
 
-    const availablePlugins = $derived(
-        selectedTrack ? PLUGINS.filter((p) => !selectedTrack.pluginIds.includes(p.id)) : [],
-    );
+    const availablePlugins = $derived(PLUGINS);
 
     function togglePanel() {
         ui.effectsRackOpen = !ui.effectsRackOpen;
@@ -152,7 +150,8 @@
     .rack-content {
         padding: 8px 12px;
         border-top: 1px solid var(--border-color);
-        overflow-x: auto;
+        overflow: auto;
+        height: 250px;
     }
 
     .plugin-chain {

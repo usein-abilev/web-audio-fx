@@ -1,31 +1,58 @@
 <script lang="ts">
     import { timeline, type TimelineClip as TimelineClipType } from "$lib/stores/timeline.svelte";
+    import { ui } from "$lib/stores/ui.svelte";
     import { generateWaveformPath } from "$lib/utils/waveform";
 
     let {
         clip,
-        selected = false,
         onDragStart,
     }: {
         clip: TimelineClipType;
-        selected?: boolean;
-        onclick?: (e: MouseEvent) => void;
         onDragStart?: (clipId: number, mouseX: number, mouseY: number) => void;
     } = $props();
+
+    let selected = $derived(ui.selectedClipIds.has(clip.id));
 
     const x = $derived(timeline.musicalTimeToX(clip.time));
     const y = $derived(clip.trackId * timeline.trackHeight);
     const clipWidth = $derived(clip.duration.bar * timeline.barWidth + clip.duration.beat * timeline.beatWidth);
     const clipSampleId = $derived(clip.sampleId);
 
+    const clipBufferDuration = $derived.by(() => {
+        const buffer = timeline.getBufferSync(clipSampleId);
+        return buffer ? buffer.duration : 1;
+    });
+    const offsetSeconds = $derived(timeline.musicalTimeToSeconds(clip.offset));
+    const durationSeconds = $derived(timeline.musicalTimeToSeconds(clip.duration));
+    const offsetFraction = $derived(offsetSeconds / clipBufferDuration);
+    const durationFraction = $derived(durationSeconds / clipBufferDuration);
+
     const waveformPath = $derived.by(() => {
-        console.log("Re-rendering sample waveform", clipSampleId);
         const waveHeight = timeline.trackHeight - 24;
         const buffer = timeline.getBufferSync(clipSampleId);
         if (buffer) {
-            return generateWaveformPath(buffer, Math.max(1, Math.floor(clipWidth)), waveHeight);
+            return generateWaveformPath(
+                buffer,
+                Math.max(1, Math.floor(clipWidth)),
+                waveHeight,
+                offsetFraction,
+                durationFraction,
+            );
         }
     });
+
+    let isResizing = $state(false);
+    let resizeEdge = $state<"left" | "right">("right");
+    let resizeStartMouseX = $state(0);
+    let resizeStartClipTime = $state({ bar: 0, beat: 0 });
+    let resizeStartClipDuration = $state({ bar: 0, beat: 0 });
+    let resizeStartClipOffset = $state({ bar: 0, beat: 0 });
+    let shiftHeld = $state(false);
+
+    function beatsToMusical(b: number) {
+        const clamped = Math.max(0, b);
+        return { bar: Math.floor(clamped / 4), beat: Math.round((clamped % 4) * 100) / 100 };
+    }
 
     function handleContextMenu(e: MouseEvent) {
         e.preventDefault();
@@ -36,6 +63,19 @@
         if (e.button !== 0) return;
         e.stopPropagation();
 
+        const addToSelection = e.ctrlKey || e.metaKey;
+
+        if (addToSelection) {
+            ui.selectClip(clip.id, true);
+            ui.selectedSampleId = clip.sampleId;
+            return;
+        }
+
+        if (!ui.isClipSelected(clip.id)) {
+            ui.selectClip(clip.id, false);
+            ui.selectedSampleId = clip.sampleId;
+        }
+
         const svg = (e.currentTarget as HTMLElement).closest("svg");
         if (!svg) return;
         const rect = svg.getBoundingClientRect();
@@ -45,7 +85,74 @@
 
         onDragStart?.(clip.id, mouseX, mouseY);
     }
+
+    function screenToSvg(clientX: number, clientY: number) {
+        const svg = document.querySelector("svg.grid-svg") as SVGSVGElement | null;
+        if (!svg) return { x: 0, y: 0 };
+        const rect = svg.getBoundingClientRect();
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function handleResizeStart(e: MouseEvent, edge: "left" | "right") {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        e.preventDefault();
+
+        isResizing = true;
+        resizeEdge = edge;
+        resizeStartMouseX = e.clientX;
+        resizeStartClipTime = { ...clip.time };
+        resizeStartClipDuration = { ...clip.duration };
+        resizeStartClipOffset = { ...clip.offset };
+
+        document.addEventListener("mousemove", handleResizeMove);
+        document.addEventListener("mouseup", handleResizeEnd);
+    }
+
+    function handleResizeMove(e: MouseEvent) {
+        if (!isResizing) return;
+
+        const { x: currentX } = screenToSvg(e.clientX, e.clientY);
+        const { x: startSvgX } = screenToSvg(resizeStartMouseX, e.clientY);
+        const svgDeltaX = currentX - startSvgX;
+
+        const deltaBeatsRaw = svgDeltaX / timeline.beatWidth;
+        const gridStepBeats = timeline.stepWidth / timeline.beatWidth;
+        const deltaBeats = shiftHeld ? deltaBeatsRaw : Math.round(deltaBeatsRaw / gridStepBeats) * gridStepBeats;
+
+        const bufferDurationBeats = clipBufferDuration * (timeline.bpm / 60);
+
+        const oldDurationBeats = resizeStartClipDuration.bar * 4 + resizeStartClipDuration.beat;
+        const oldOffsetBeats = resizeStartClipOffset.bar * 4 + resizeStartClipOffset.beat;
+
+        if (resizeEdge === "right") {
+            const newDurationBeats = Math.max(
+                0.25,
+                Math.min(oldDurationBeats + deltaBeats, bufferDurationBeats - oldOffsetBeats),
+            );
+            timeline.resizeClip(clip.id, { duration: beatsToMusical(newDurationBeats) });
+        } else {
+            const newOffsetBeats = Math.max(0, Math.min(oldOffsetBeats + deltaBeats, bufferDurationBeats - 0.25));
+            const offsetDelta = newOffsetBeats - oldOffsetBeats;
+            const newDurationBeats = Math.max(0.25, oldDurationBeats - offsetDelta);
+            const oldTimeBeats = resizeStartClipTime.bar * 4 + resizeStartClipTime.beat;
+            const newTimeBeats = Math.max(0, oldTimeBeats + offsetDelta);
+            timeline.resizeClip(clip.id, {
+                offset: beatsToMusical(newOffsetBeats),
+                duration: beatsToMusical(newDurationBeats),
+                time: beatsToMusical(newTimeBeats),
+            });
+        }
+    }
+
+    function handleResizeEnd() {
+        isResizing = false;
+        document.removeEventListener("mousemove", handleResizeMove);
+        document.removeEventListener("mouseup", handleResizeEnd);
+    }
 </script>
+
+<svelte:window onkeyup={() => (shiftHeld = false)} onkeydown={(e) => (shiftHeld = e.shiftKey)} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -66,22 +173,56 @@
     <rect {x} {y} width={clipWidth} height={20} fill="var(--accent-blue-dark, #233161)" rx="2" />
 
     <!-- Clip name -->
-    <text x={x + 4} y={y + 14} fill="white" font-size="11" font-family="var(--font-family)">
-        {clip.sampleName}
-    </text>
+    <foreignObject x={x + 4} y={y + 1} width={Math.max(0, clipWidth - 8)} height={18} pointer-events="none">
+        <div class="clip-name">{clip.sampleName}</div>
+    </foreignObject>
 
     <!-- Waveform -->
     <g transform="translate({x}, {y + 20})">
         <path d={waveformPath} stroke="var(--text-primary)" stroke-width="1" fill="none" opacity="0.6" />
     </g>
+
+    <!-- Resize handles -->
+    <rect
+        {x}
+        {y}
+        width={6}
+        height={timeline.trackHeight}
+        fill="transparent"
+        style="cursor: ew-resize;"
+        onmousedown={(e) => handleResizeStart(e, "left")}
+    />
+    <rect
+        x={x + clipWidth - 6}
+        {y}
+        width={6}
+        height={timeline.trackHeight}
+        fill="transparent"
+        style="cursor: ew-resize;"
+        onmousedown={(e) => handleResizeStart(e, "right")}
+    />
 </g>
 
 <style>
     .clip {
-        cursor: pointer;
+        cursor: default;
+    }
+
+    .clip.selected {
+        cursor: move;
     }
 
     .clip:hover rect:first-child {
         filter: brightness(1.1);
+    }
+
+    .clip-name {
+        color: white;
+        font-size: 11px;
+        font-family: var(--font-family);
+        line-height: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 </style>

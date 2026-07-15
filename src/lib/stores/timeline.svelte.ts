@@ -15,6 +15,7 @@ export type TimelineClip = {
     time: MusicalTime;
     trackId: number;
     duration: MusicalTime;
+    offset: MusicalTime;
 };
 
 export type TimelineTrack = {
@@ -168,6 +169,7 @@ class TimelineState {
         trackId: number,
         time: MusicalTime,
         durationBeats: number,
+        offsetBeats: number = 0,
     ): TimelineClip {
         const clip: TimelineClip = {
             id: this.nextClipId++,
@@ -178,6 +180,10 @@ class TimelineState {
             duration: {
                 bar: Math.floor(durationBeats / 4),
                 beat: durationBeats % 4,
+            },
+            offset: {
+                bar: Math.floor(offsetBeats / 4),
+                beat: offsetBeats % 4,
             },
         };
         this.clips = [...this.clips, clip];
@@ -190,6 +196,33 @@ class TimelineState {
 
     moveClip(id: number, newTime: MusicalTime, newTrackId: number): void {
         this.clips = this.clips.map((c) => (c.id === id ? { ...c, time: newTime, trackId: newTrackId } : c));
+    }
+
+    resizeClip(id: number, opts: { duration?: MusicalTime; offset?: MusicalTime; time?: MusicalTime }): void {
+        this.clips = this.clips.map((c) => (c.id === id ? { ...c, ...opts } : c));
+    }
+
+    private clipboard: TimelineClip[] = [];
+
+    copyClips(ids: number[]): void {
+        this.clipboard = this.clips.filter((c) => ids.includes(c.id));
+    }
+
+    pasteClips(): TimelineClip[] {
+        if (this.clipboard.length === 0) return [];
+        const pasted: TimelineClip[] = [];
+        for (const clip of this.clipboard) {
+            const newClip = this.addClip(
+                clip.sampleId,
+                clip.sampleName,
+                clip.trackId,
+                clip.time,
+                clip.duration.bar * 4 + clip.duration.beat,
+                clip.offset.bar * 4 + clip.offset.beat,
+            );
+            pasted.push(newClip);
+        }
+        return pasted;
     }
 
     private audioContext: AudioContext | null = null;
@@ -430,18 +463,18 @@ class TimelineState {
     }
 
     private getTotalDurationSeconds(): number {
-        let latestEnd = 0;
+        let latestEndBeats = 0;
         for (const clip of this.clips) {
             const startBeats = clip.time.bar * 4 + clip.time.beat;
             const durationBeats = clip.duration.bar * 4 + clip.duration.beat;
             const endBeats = startBeats + durationBeats;
-            const endSeconds = (endBeats * 60) / this.bpm;
-            if (endSeconds > latestEnd) latestEnd = endSeconds;
+            if (endBeats > latestEndBeats) latestEndBeats = endBeats;
         }
-        return latestEnd > 0 ? latestEnd : 4; // default 1 bar
+        const roundedEndBeats = latestEndBeats > 0 ? Math.ceil(latestEndBeats / 4) * 4 : 4;
+        return (roundedEndBeats * 60) / this.bpm;
     }
 
-    private musicalTimeToSeconds(time: MusicalTime): number {
+    musicalTimeToSeconds(time: MusicalTime): number {
         return ((time.bar * 4 + time.beat) * 60) / this.bpm;
     }
 
@@ -483,8 +516,9 @@ class TimelineState {
         const clipStart = this.musicalTimeToSeconds(clip.time);
         const clipDuration = this.musicalTimeToSeconds(clip.duration);
 
+        const offsetSeconds = this.musicalTimeToSeconds(clip.offset);
         const startAt = referenceTime + clipStart;
-        source.start(startAt, 0, clipDuration);
+        source.start(startAt, offsetSeconds, clipDuration);
 
         this.activeSources.push(source);
     }
