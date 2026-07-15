@@ -1,0 +1,6 @@
+build
+.svelte-kit
+node_modules
+dist
+index.html
+loopstation.html
