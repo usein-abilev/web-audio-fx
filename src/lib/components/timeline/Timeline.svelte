@@ -22,6 +22,7 @@
 
     let isDragging = $state(false);
     let dragStartMouseX = $state(0);
+    let dragStartMouseY = $state(0);
     let dragStartClipPositions = $state<Map<number, MusicalTime>>(new Map());
     let dragStartClipTracks = $state<Map<number, number>>(new Map());
     let shiftHeld = false;
@@ -70,6 +71,7 @@
 
         isDragging = true;
         dragStartMouseX = mouseSvgX;
+        dragStartMouseY = mouseSvgY;
 
         const positions = new Map<number, MusicalTime>();
         const tracks = new Map<number, number>();
@@ -93,20 +95,27 @@
         const { x: currentX, y: currentY } = screenToSvg(e.clientX, e.clientY);
         const deltaX = currentX - dragStartMouseX;
 
-        const newTrackId = timeline.yToTrackId(currentY);
-        if (newTrackId === MASTER_TRACK_ID) return;
+        const startTrackId = timeline.yToTrackId(dragStartMouseY);
+        const currentTrackId = timeline.yToTrackId(currentY);
+        if (currentTrackId === MASTER_TRACK_ID) return;
 
+        const deltaTrack = currentTrackId - startTrackId;
         const isMulti = ui.selectedClipIds.size > 1;
+        const trackCount = timeline.tracks.length;
 
         for (const id of ui.selectedClipIds) {
             const origTime = dragStartClipPositions.get(id);
-            if (!origTime) continue;
+            const origTrack = dragStartClipTracks.get(id);
+            if (origTime === undefined || origTrack === undefined) continue;
 
             const origX = timeline.musicalTimeToX(origTime);
             const newX = Math.max(0, origX + deltaX);
             const newTime = shiftHeld ? timeline.xToMusicalTimeRaw(newX) : timeline.xToMusicalTime(newX);
 
-            const targetTrack = isMulti ? (dragStartClipTracks.get(id) ?? newTrackId) : newTrackId;
+            const targetTrack = isMulti
+                ? Math.min(trackCount - 1, Math.max(0, origTrack + deltaTrack))
+                : currentTrackId;
+
             timeline.moveClip(id, newTime, targetTrack);
         }
     }

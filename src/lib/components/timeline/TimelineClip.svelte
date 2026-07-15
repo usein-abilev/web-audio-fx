@@ -79,9 +79,8 @@
         const svg = (e.currentTarget as HTMLElement).closest("svg");
         if (!svg) return;
         const rect = svg.getBoundingClientRect();
-        const scrollParent = svg.parentElement;
-        const mouseX = e.clientX - rect.left + (scrollParent?.scrollLeft ?? 0);
-        const mouseY = e.clientY - rect.top + (scrollParent?.scrollTop ?? 0);
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
         onDragStart?.(clip.id, mouseX, mouseY);
     }
