@@ -1,16 +1,16 @@
 <script lang="ts">
-    import { timeline } from "$lib/stores/timeline.svelte";
+    import { audio } from "$lib/stores/audio.svelte";
 </script>
 
 <button
     class="svg-button"
-    class:active={timeline.isRecording}
+    class:active={audio.isRecording}
     aria-label="Record"
     onclick={() => {
-        if (timeline.isRecording) {
-            timeline.disarmRecording();
+        if (audio.isRecording) {
+            audio.disarmRecording();
         } else {
-            timeline.armRecording();
+            audio.armRecording();
         }
     }}
 >

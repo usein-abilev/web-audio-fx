@@ -1,5 +1,7 @@
 <script lang="ts">
     import { timeline, MASTER_TRACK_ID, type MusicalTime } from "$lib/stores/timeline.svelte";
+    import { audio } from "$lib/stores/audio.svelte";
+    import { samples } from "$lib/stores/samples.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import TimelineGrid from "./TimelineGrid.svelte";
     import TimelineClip from "./TimelineClip.svelte";
@@ -40,10 +42,10 @@
             if (e.key === "Control" || e.key === "Meta") ctrlHeld = true;
             if (e.code === "Space") {
                 e.preventDefault();
-                if (timeline.isPlaying) {
-                    timeline.pause();
+                if (audio.isPlaying) {
+                    audio.pause();
                 } else {
-                    timeline.resume();
+                    audio.resume();
                 }
             }
         };
@@ -196,12 +198,12 @@
         const x = e.clientX - rect.left;
         const rawBeats = x / timeline.beatWidth;
         const beats = Math.max(0, Math.floor(rawBeats / timeline.gridStepValue) * timeline.gridStepValue);
-        timeline.playbackPosition = beats;
+        audio.playbackPosition = beats;
     }
 
     function handleGridMouseDown(e: MouseEvent) {
         if (e.button !== 0) return;
-        if (timeline.isLoadingSample) return;
+        if (audio.isLoadingSample) return;
 
         const { x, y } = screenToSvg(e.clientX, e.clientY);
         if (x < 0) return;
@@ -232,6 +234,17 @@
             });
         } else {
             ui.deselectAllClips();
+        }
+    }
+
+    async function handleFileDrop(e: DragEvent) {
+        e.preventDefault();
+        const file = e.dataTransfer?.files[0];
+        if (!file) return;
+
+        const sampleId = await samples.uploadFile(file);
+        if (sampleId) {
+            ui.selectedSampleId = sampleId;
         }
     }
 
@@ -267,25 +280,21 @@
     }
 
     function handleClipDragStart(clipId: number, mouseSvgX: number, mouseSvgY: number) {
-        if (timeline.isLoadingSample) return;
+        if (audio.isLoadingSample) return;
         startDrag(clipId, mouseSvgX, mouseSvgY);
     }
 
     function handleKeydown(e: KeyboardEvent) {
         if (e.key === "Delete" || e.key === "Backspace") {
-            const ids = [...ui.selectedClipIds];
-            if (ids.length > 0) {
-                for (const id of ids) {
-                    timeline.removeClip(id);
-                }
+            if (ui.selectedClipIds.size > 0) {
+                timeline.removeClips([...ui.selectedClipIds]);
                 ui.deselectAllClips();
             }
         }
 
         if ((e.ctrlKey || e.metaKey) && e.key === "c") {
-            const ids = [...ui.selectedClipIds];
-            if (ids.length > 0) {
-                timeline.copyClips(ids);
+            if (ui.selectedClipIds.size > 0) {
+                timeline.copyClips([...ui.selectedClipIds]);
             }
         }
 
@@ -334,15 +343,26 @@
     }
 
     function handleGainChange(trackId: number, value: number) {
-        timeline.updateTrackGain(trackId, value);
+        audio.updateTrackGain(trackId, value);
     }
 
     function handlePanChange(trackId: number, value: number) {
-        timeline.updateTrackPan(trackId, value);
+        audio.updateTrackPan(trackId, value);
     }
 </script>
 
-<div class="timeline-wrapper" bind:this={wrapperEl} onkeydown={handleKeydown} tabindex="0" role="application">
+<div
+    class="timeline-wrapper"
+    bind:this={wrapperEl}
+    onkeydown={handleKeydown}
+    tabindex="0"
+    role="application"
+    ondragover={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    }}
+    ondrop={handleFileDrop}
+>
     <div class="timeline-scroll">
         <div class="timeline-grid">
             <!-- Corner: sticky top-left -->
@@ -523,7 +543,7 @@
                                     class:active={track.muted}
                                     onclick={(e) => {
                                         e.stopPropagation();
-                                        timeline.toggleMute(track.id);
+                                        audio.toggleMute(track.id);
                                     }}>M</button
                                 >
                                 <button
@@ -531,7 +551,7 @@
                                     class:active={track.solo}
                                     onclick={(e) => {
                                         e.stopPropagation();
-                                        timeline.toggleSolo(track.id);
+                                        audio.toggleSolo(track.id);
                                     }}>S</button
                                 >
                             </div>
@@ -626,7 +646,7 @@
                     height={totalHeight}
                     class="grid-svg"
                     class:dragging={isDragging}
-                    class:loading={timeline.isLoadingSample}
+                    class:loading={audio.isLoadingSample}
                     onmousedown={handleGridMouseDown}
                     oncontextmenu={(e) => {
                         e.preventDefault();

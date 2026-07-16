@@ -1,5 +1,6 @@
 <script lang="ts">
     import { timeline, type TimelineClip as TimelineClipType } from "$lib/stores/timeline.svelte";
+    import { samples } from "$lib/stores/samples.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import { generateWaveformPath } from "$lib/utils/waveform";
 
@@ -19,7 +20,7 @@
     const clipSampleId = $derived(clip.sampleId);
 
     const clipBufferDuration = $derived.by(() => {
-        const buffer = timeline.getBufferSync(clipSampleId);
+        const buffer = samples.getBufferSync(clipSampleId);
         return buffer ? buffer.duration : 1;
     });
     const offsetSeconds = $derived(timeline.musicalTimeToSeconds(clip.offset));
@@ -29,7 +30,7 @@
 
     const waveformPath = $derived.by(() => {
         const waveHeight = timeline.trackHeight - 24;
-        const buffer = timeline.getBufferSync(clipSampleId);
+        const buffer = samples.getBufferSync(clipSampleId);
         if (buffer) {
             return generateWaveformPath(
                 buffer,
@@ -61,7 +62,7 @@
 
     function handleContextMenu(e: MouseEvent) {
         e.preventDefault();
-        timeline.removeClip(clip.id);
+        timeline.removeClips([clip.id]);
     }
 
     function handleMouseDown(e: MouseEvent) {

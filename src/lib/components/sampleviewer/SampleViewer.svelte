@@ -1,5 +1,7 @@
 <script lang="ts">
     import { timeline } from "$lib/stores/timeline.svelte";
+    import { audio } from "$lib/stores/audio.svelte";
+    import { samples } from "$lib/stores/samples.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import WaveformDisplay from "./WaveformDisplay.svelte";
     import EditorControls from "./EditorControls.svelte";
@@ -8,8 +10,7 @@
     let isLoading = $state(false);
 
     $effect(() => {
-        const ids = [...ui.selectedClipIds];
-        const clipId = ids.length > 0 ? ids[0] : null;
+        const clipId = ui.selectedClipIds.size > 0 ? [...ui.selectedClipIds][0] : null;
         if (clipId === null) {
             audioBuffer = null;
             return;
@@ -21,15 +22,14 @@
             return;
         }
 
-        const cached = timeline.getBufferSync(clip.sampleId);
+        const cached = samples.getBufferSync(clip.sampleId);
         if (cached) {
             audioBuffer = cached;
             return;
         }
 
         isLoading = true;
-        const path = timeline.findSamplePath(clip.sampleId);
-        timeline.getBuffer(clip.sampleId, path ?? undefined).then((buf) => {
+        samples.getBuffer(clip.sampleId).then((buf) => {
             audioBuffer = buf;
             isLoading = false;
         });
@@ -58,7 +58,7 @@
                 <div class="loading">Loading...</div>
             {:else if audioBuffer}
                 <WaveformDisplay {audioBuffer} />
-                <EditorControls {audioBuffer} audioContext={timeline.context} />
+                <EditorControls {audioBuffer} audioContext={audio.context} />
             {:else if ui.selectedClipIds.size > 0}
                 <div class="empty">Failed to load sample</div>
             {:else}

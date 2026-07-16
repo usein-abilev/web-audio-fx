@@ -1,21 +1,21 @@
 <script lang="ts">
-    import { timeline } from "$lib/stores/timeline.svelte";
+    import { audio } from "$lib/stores/audio.svelte";
 </script>
 
 <div class="transport">
     <button
         class="svg-button"
-        class:active={timeline.isPlaying}
-        aria-label={timeline.isPlaying ? "Pause" : "Play"}
+        class:active={audio.isPlaying}
+        aria-label={audio.isPlaying ? "Pause" : "Play"}
         onclick={() => {
-            if (timeline.isPlaying) {
-                timeline.pause();
+            if (audio.isPlaying) {
+                audio.pause();
             } else {
-                timeline.resume();
+                audio.resume();
             }
         }}
     >
-        {#if timeline.isPlaying}
+        {#if audio.isPlaying}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <rect x="6" y="5" width="4" height="14" fill="currentColor" rx="1" />
                 <rect x="14" y="5" width="4" height="14" fill="currentColor" rx="1" />
@@ -33,7 +33,7 @@
         {/if}
     </button>
 
-    <button class="svg-button" aria-label="Stop" onclick={() => timeline.stop()}>
+    <button class="svg-button" aria-label="Stop" onclick={() => audio.stop()}>
         <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" />
         </svg>

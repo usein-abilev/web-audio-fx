@@ -1,7 +1,7 @@
 import { SvelteSet } from "svelte/reactivity";
 
 class UIState {
-    selectedSampleId = $state<number | null>(null);
+    selectedSampleId = $state<string | null>(null);
     selectedClipIds = $state(new SvelteSet<number>());
     lastSelectedClipId = $state<number | null>(null);
     selectedTrackId = $state<number | null>(null);

@@ -5,7 +5,7 @@ export const prerender = true;
 export const ssr = false;
 
 type Sample = {
-    id: number;
+    id: string;
     name: string;
     path: string;
 };
@@ -30,9 +30,8 @@ function scanAudioFiles(path: string, rootDir: string): Sample[] {
                 const relativePath = "/" + relative(rootDir, fullpath).replaceAll("\\", "/");
                 const name = entry.replace(/\.[^.]+$/, "");
                 samples.push({
-                    id: samples.length + 1,
+                    id: relativePath,
                     name,
-                    // path: fullpath,
                     path: relativePath,
                 });
             }

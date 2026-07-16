@@ -1,6 +1,7 @@
 <script lang="ts">
     import { ui } from "$lib/stores/ui.svelte";
     import { timeline, MASTER_TRACK_ID } from "$lib/stores/timeline.svelte";
+    import { audio } from "$lib/stores/audio.svelte";
     import PLUGINS from "$lib/audio/plugins/index";
     import PluginSlot from "./PluginSlot.svelte";
 
@@ -15,7 +16,7 @@
             ? selectedTrack.pluginIds.map((id, i) => ({
                   id,
                   name: PLUGINS.find((p) => p.id === id)?.name ?? id,
-                  instance: timeline.getPluginInstance(selectedTrack.id, i),
+                  instance: audio.getPluginInstance(selectedTrack.id, i),
                   index: i,
               }))
             : [],
@@ -32,18 +33,18 @@
         const pluginId = select.value;
         if (!pluginId || ui.selectedTrackId === null) return;
 
-        timeline.addPlugin(ui.selectedTrackId, pluginId);
+        audio.addPlugin(ui.selectedTrackId, pluginId);
         select.value = "";
     }
 
     function handleRemove(index: number) {
         if (ui.selectedTrackId === null) return;
-        timeline.removePlugin(ui.selectedTrackId, index);
+        audio.removePlugin(ui.selectedTrackId, index);
     }
 
     function handleBypass(index: number) {
         if (ui.selectedTrackId === null) return;
-        timeline.toggleBypass(ui.selectedTrackId, index);
+        audio.toggleBypass(ui.selectedTrackId, index);
     }
 
     function handleDragStart(index: number, _e: DragEvent) {
@@ -61,7 +62,7 @@
     function handleDrop(toIndex: number, _e: DragEvent) {
         if (draggedIndex === null || ui.selectedTrackId === null) return;
         if (draggedIndex !== toIndex) {
-            timeline.movePlugin(ui.selectedTrackId, draggedIndex, toIndex);
+            audio.movePlugin(ui.selectedTrackId, draggedIndex, toIndex);
         }
         draggedIndex = null;
     }

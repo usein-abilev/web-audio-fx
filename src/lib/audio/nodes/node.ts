@@ -11,31 +11,6 @@ export default abstract class AudioBaseNode {
     constructor(protected audioContext: AudioContext) {
         this.input = this.audioContext.createGain();
         this.output = this.audioContext.createGain();
-
-        // const gainDefaultValue = decibelToLinear(0);
-
-        // const knobOptions = {
-        //     min: 0,
-        //     max: 2.0,
-        //     defaultValue: gainDefaultValue,
-        //     value: gainDefaultValue,
-        //     speed: 0.3,
-        //     formatter: (percent: number) => `${linearToDecibel(percent).toFixed(1)} dB`
-        // };
-        // const setGainDecibels = (gainNode: GainNode, percent: number) => {
-        //     gainNode.gain.sf tValueAtTime(percent, this.audioContext.currentTime);
-        // };
-        //
-        // this.inputSlider = builder.knob(
-        //     "Input Gain",
-        //     (v) => setGainDecibels(this.input, v),
-        //     knobOptions
-        // );
-        // this.outputSlider = builder.knob(
-        //     "Output Gain",
-        //     (v) => setGainDecibels(this.output, v),
-        //     knobOptions
-        // );
     }
 
     receiveInput(source: AudioNode) {
