@@ -10,36 +10,46 @@
 
     let { data } = $props();
 
-    let isPlaying = $derived(timeline.isPlaying);
-
     onMount(() => {
         timeline.init();
         timeline.registerSamples(data.samples);
     });
 
-    $effect(() => {
-        if (isPlaying) {
-            timeline.play();
-        } else {
-            timeline.stop();
-        }
-    });
-
     async function handleTimelineClick(time: MusicalTime, trackId: number): Promise<number | null> {
         if (timeline.isLoadingSample) return null;
         if (ui.selectedSampleId === null) return null;
-        const sample = data.samples.find((s) => s.id === ui.selectedSampleId);
-        if (!sample) return null;
 
         timeline.isLoadingSample = true;
         try {
-            const buffer = await timeline.getBuffer(sample.id, sample.path);
-            if (!buffer) return null;
+            let sampleId = ui.selectedSampleId;
+            let sampleName;
+            let buffer = null;
+
+            // data.samples keeps only files loaded at compile time and with path (url pointing to the audio file)
+            // Therefore recorded audio buffers and other in-memory buffers should be accessed directly via timeline.getBuffer()
+            //
+            // TODO: Fix this after introducing an IndexedDB storage
+            if (ui.selectedSampleId < 0) {
+                // right now all negative sample ids are recorded samples
+                sampleId = ui.selectedSampleId;
+                sampleName = "recording";
+                buffer = timeline.getBufferSync(ui.selectedSampleId);
+                if (!buffer) return null;
+            } else {
+                const sample = data.samples.find((s) => s.id === ui.selectedSampleId);
+                if (!sample) return null;
+
+                sampleId = sample.id;
+                sampleName = sample.name;
+                buffer = await timeline.getBuffer(sample.id, sample.path);
+                if (!buffer) return null;
+            }
 
             // Inherit duration/offset from the last selected clip if same sample
             const lastClip =
                 ui.lastSelectedClipId !== null && timeline.clips.find((c) => c.id === ui.lastSelectedClipId);
-            if (lastClip && lastClip.sampleId === sample.id) {
+
+            if (lastClip && lastClip.sampleId === sampleId) {
                 const durationBeats = lastClip.duration.bar * 4 + lastClip.duration.beat;
                 const offsetBeats = lastClip.offset.bar * 4 + lastClip.offset.beat;
                 const clip = timeline.addClip(
@@ -49,12 +59,13 @@
                     time,
                     durationBeats,
                     offsetBeats,
+                    lastClip.volume,
                 );
                 return clip.id;
             }
 
             const durationBeats = buffer.duration * (timeline.bpm / 60);
-            const clip = timeline.addClip(sample.id, sample.name, trackId, time, durationBeats, 0);
+            const clip = timeline.addClip(sampleId, sampleName, trackId, time, durationBeats, 0);
             return clip.id;
         } finally {
             timeline.isLoadingSample = false;

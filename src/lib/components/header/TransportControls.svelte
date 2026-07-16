@@ -7,7 +7,13 @@
         class="svg-button"
         class:active={timeline.isPlaying}
         aria-label={timeline.isPlaying ? "Pause" : "Play"}
-        onclick={() => (timeline.isPlaying = !timeline.isPlaying)}
+        onclick={() => {
+            if (timeline.isPlaying) {
+                timeline.pause();
+            } else {
+                timeline.resume();
+            }
+        }}
     >
         {#if timeline.isPlaying}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -27,7 +33,7 @@
         {/if}
     </button>
 
-    <button class="svg-button" aria-label="Stop" onclick={() => (timeline.isPlaying = false)}>
+    <button class="svg-button" aria-label="Stop" onclick={() => timeline.stop()}>
         <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" />
         </svg>

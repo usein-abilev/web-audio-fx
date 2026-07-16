@@ -144,10 +144,10 @@
         } else {
             const newOffsetBeats = Math.max(
                 0,
-                Math.min(oldOffsetBeats + deltaBeats, bufferDurationBeats - gridStepValue),
+                Math.min(oldOffsetBeats + deltaBeatsRaw, bufferDurationBeats - gridStepValue),
             );
             const offsetDelta = newOffsetBeats - oldOffsetBeats;
-            const newDurationBeats = Math.max(stpeValue, oldDurationBeats - offsetDelta);
+            const newDurationBeats = Math.max(gridStepValue, oldDurationBeats - offsetDelta);
             const oldTimeBeats = resizeStartClipTime.bar * 4 + resizeStartClipTime.beat;
             const newTimeBeats = Math.max(0, oldTimeBeats + offsetDelta);
             timeline.resizeClip(clip.id, {

@@ -65,6 +65,13 @@ class TimelineState {
         { id: 5, name: "Track 6", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
         { id: 6, name: "Track 7", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
         { id: 7, name: "Track 8", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 8, name: "Track 9", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 9, name: "Track 10", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 10, name: "Track 11", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 11, name: "Track 12", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 12, name: "Track 13", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 13, name: "Track 14", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
+        { id: 14, name: "Track 15", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
     ]);
 
     masterTrack = $state<TimelineTrack>({
@@ -80,9 +87,9 @@ class TimelineState {
     gridStep = $state<GridStep>("1/4");
     zoom = $state(1);
     oneSecondWidth = $state(120);
-    trackHeight = $state(72);
     headerHeight = $state(24);
     trackPaneWidth = $state(140);
+    trackHeight = $state(82);
 
     private nextClipId = 1;
 
@@ -175,6 +182,7 @@ class TimelineState {
         time: MusicalTime,
         durationBeats: number,
         offsetBeats: number = 0,
+        volume: number = 1.0,
     ): TimelineClip {
         const clip: TimelineClip = {
             id: this.nextClipId++,
@@ -182,6 +190,7 @@ class TimelineState {
             sampleName,
             time,
             trackId,
+            volume,
             duration: {
                 bar: Math.floor(durationBeats / 4),
                 beat: durationBeats % 4,
@@ -190,7 +199,6 @@ class TimelineState {
                 bar: Math.floor(offsetBeats / 4),
                 beat: offsetBeats % 4,
             },
-            volume: 1.0,
         };
         this.clips = [...this.clips, clip];
         return clip;
@@ -229,6 +237,7 @@ class TimelineState {
                 clip.time,
                 clip.duration.bar * 4 + clip.duration.beat,
                 clip.offset.bar * 4 + clip.offset.beat,
+                clip.volume,
             );
             pasted.push(newClip);
         }
@@ -245,6 +254,12 @@ class TimelineState {
     private animationFrame: number | null = null;
     private playbackStartTime = 0;
     private looping = false;
+
+    private nextRecordingId = -1;
+    private isCaptureActive = false;
+    private mediaRecorder: MediaRecorder | null = null;
+    private mediaStream: MediaStream | null = null;
+    private recordingStartPosition = 0;
 
     get context(): AudioContext | null {
         return this.audioContext;
@@ -265,7 +280,7 @@ class TimelineState {
             sinkNode: new AudioSinkNode(this.audioContext, "Master"),
             pluginInstances: [],
         };
-        this.masterPreNode.connect(this.masterPostNode.sinkNode.input);
+        this.masterPostNode.sinkNode.receiveInput(this.masterPreNode);
 
         this.rewireTrack(MASTER_TRACK_ID);
 
@@ -444,24 +459,9 @@ class TimelineState {
         return state.pluginInstances[index] ?? null;
     }
 
-    play(): void {
-        if (!this.audioContext) return;
-        if (this.looping) return;
-        if (this.audioContext.state === "suspended") {
-            this.audioContext.resume();
-        }
-
-        const startBeat = this.playbackPosition;
-        const startOffsetSeconds = (startBeat * 60) / this.bpm;
-
-        this.stop();
-        this.looping = true;
-        this.playbackStartTime = this.audioContext.currentTime - startOffsetSeconds;
-        this.scheduleAllClips();
-        this.startCursorAnimation();
-    }
-
-    stop(): void {
+    private stopAudio(): void {
+        this.stopCapture();
+        this.isPlaying = false;
         this.looping = false;
         this.activeSources.forEach((s) => {
             try {
@@ -473,7 +473,148 @@ class TimelineState {
             cancelAnimationFrame(this.animationFrame);
             this.animationFrame = null;
         }
+    }
+
+    private async startPlaybackFrom(positionBeats: number): Promise<void> {
+        const startOffsetSeconds = (positionBeats * 60) / this.bpm;
+        this.looping = true;
+        this.isPlaying = true;
+        this.playbackStartTime = this.audioContext!.currentTime - startOffsetSeconds;
+        this.scheduleAllClips();
+        this.startCursorAnimation();
+        await this.startCapture();
+    }
+
+    async play(): Promise<void> {
+        if (!this.audioContext) return;
+        if (this.looping) return;
+        if (this.audioContext.state === "suspended") {
+            this.audioContext.resume();
+        }
+
+        this.stopAudio();
         this.playbackPosition = 0;
+        await this.startPlaybackFrom(0);
+    }
+
+    async resume(): Promise<void> {
+        if (!this.audioContext) return;
+        if (this.looping) return;
+        if (this.audioContext.state === "suspended") {
+            this.audioContext.resume();
+        }
+
+        this.stopAudio();
+        await this.startPlaybackFrom(this.playbackPosition);
+    }
+
+    pause(): void {
+        this.stopAudio();
+    }
+
+    stop(): void {
+        this.stopAudio();
+        this.playbackPosition = 0;
+    }
+
+    private async startCapture(): Promise<void> {
+        if (!this.isRecording || this.isCaptureActive) return;
+        this.mediaRecorder = await this.createStreamRecorder();
+        this.isCaptureActive = true;
+        this.recordingStartPosition = this.playbackPosition;
+        this.mediaRecorder.start();
+    }
+
+    private stopCapture(): void {
+        if (!this.isRecording || !this.isCaptureActive || !this.mediaRecorder) return;
+        this.isCaptureActive = false;
+        this.mediaRecorder.stop();
+    }
+
+    async armRecording(): Promise<void> {
+        if (this.isRecording || !this.audioContext) return;
+        this.mediaRecorder = await this.createStreamRecorder();
+        this.isRecording = true;
+    }
+
+    disarmRecording(): void {
+        if (!this.isRecording) return;
+        this.stopCapture();
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach((t) => t.stop());
+            this.mediaStream = null;
+        }
+        this.mediaRecorder = null;
+        this.isRecording = false;
+        this.isCaptureActive = false;
+    }
+
+    private async createStreamRecorder() {
+        if (!this.mediaStream) {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    channelCount: 1,
+                },
+            });
+            this.mediaStream = stream;
+        }
+        const chunks: Blob[] = [];
+        const recorder = new MediaRecorder(this.mediaStream, { mimeType: "audio/webm" });
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            const endPosition = this.playbackPosition;
+            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+                const sampleId = this.nextRecordingId--;
+
+                this.buffers.set(sampleId, audioBuffer);
+
+                const durationBeats = Math.max(0, endPosition - this.recordingStartPosition);
+                if (durationBeats <= 0) return;
+
+                const startBar = Math.floor(this.recordingStartPosition / 4);
+                const startBeat = this.recordingStartPosition % 4;
+
+                let track = this.tracks.find((t) => !this.clips.some((c) => c.trackId === t.id));
+                if (!track) {
+                    const newId = Math.max(...this.tracks.map((t) => t.id), 0) + 1;
+                    const newTrack: TimelineTrack = {
+                        id: newId,
+                        name: `Track ${this.tracks.length + 1}`,
+                        gain: 1,
+                        pan: 0,
+                        muted: false,
+                        solo: false,
+                        pluginIds: [],
+                    };
+                    this.tracks = [...this.tracks, newTrack];
+                    this.createTrackAudio(newTrack);
+                    track = newTrack;
+                }
+
+                this.addClip(
+                    sampleId,
+                    `Recording ${Math.abs(sampleId)}`,
+                    track!.id,
+                    { bar: startBar, beat: startBeat },
+                    durationBeats,
+                    0,
+                );
+            } catch (err) {
+                console.error("Failed to process recording:", err);
+            }
+        };
+
+        return recorder;
     }
 
     private getTotalDurationSeconds(): number {
@@ -530,12 +671,19 @@ class TimelineState {
         trackState.sinkNode.receiveInput(clipGain);
 
         const clipStart = this.musicalTimeToSeconds(clip.time);
-        const clipDuration = this.musicalTimeToSeconds(clip.duration);
+        let clipDuration = this.musicalTimeToSeconds(clip.duration);
+        let offsetSeconds = this.musicalTimeToSeconds(clip.offset);
+        let startAt = referenceTime + clipStart;
 
-        const offsetSeconds = this.musicalTimeToSeconds(clip.offset);
-        const startAt = referenceTime + clipStart;
+        const elapsedSinceClipStart = this.audioContext.currentTime - startAt;
 
-        if (startAt < this.audioContext.currentTime) return;
+        // Adjust offset and duration if resuming mid-clip
+        if (elapsedSinceClipStart > 0) {
+            if (elapsedSinceClipStart >= clipDuration) return;
+            offsetSeconds += elapsedSinceClipStart;
+            clipDuration -= elapsedSinceClipStart;
+            startAt = this.audioContext.currentTime;
+        }
 
         const FADE_DURATION = 0.01;
         const fadeTime = Math.min(FADE_DURATION, clipDuration / 2);
@@ -565,20 +713,25 @@ class TimelineState {
             if (!this.audioContext || !this.looping) return;
 
             const elapsed = this.audioContext.currentTime - this.playbackStartTime;
-            const totalDuration = this.getTotalDurationSeconds();
-            const positionSeconds = elapsed % totalDuration;
 
-            this.playbackPosition = (positionSeconds * this.bpm) / 60;
+            if (this.isCaptureActive) {
+                this.playbackPosition = (elapsed * this.bpm) / 60;
+            } else {
+                const totalDuration = this.getTotalDurationSeconds();
+                const positionSeconds = elapsed % totalDuration;
 
-            if (elapsed >= totalDuration) {
-                this.playbackStartTime = this.audioContext.currentTime;
-                this.activeSources.forEach((s) => {
-                    try {
-                        s.stop();
-                    } catch {}
-                });
-                this.activeSources = [];
-                this.scheduleAllClips();
+                this.playbackPosition = (positionSeconds * this.bpm) / 60;
+
+                if (elapsed >= totalDuration) {
+                    this.playbackStartTime = this.audioContext.currentTime;
+                    this.activeSources.forEach((s) => {
+                        try {
+                            s.stop();
+                        } catch {}
+                    });
+                    this.activeSources = [];
+                    this.scheduleAllClips();
+                }
             }
 
             this.animationFrame = requestAnimationFrame(animate);

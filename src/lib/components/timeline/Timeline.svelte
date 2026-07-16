@@ -39,8 +39,12 @@
             if (e.key === "Shift") shiftHeld = true;
             if (e.key === "Control" || e.key === "Meta") ctrlHeld = true;
             if (e.code === "Space") {
-                timeline.stop();
-                timeline.play();
+                e.preventDefault();
+                if (timeline.isPlaying) {
+                    timeline.pause();
+                } else {
+                    timeline.resume();
+                }
             }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
@@ -190,7 +194,8 @@
         if (!headerSvg) return;
         const rect = headerSvg.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const beats = Math.max(0, x / timeline.beatWidth);
+        const rawBeats = x / timeline.beatWidth;
+        const beats = Math.max(0, Math.floor(rawBeats / timeline.gridStepValue) * timeline.gridStepValue);
         timeline.playbackPosition = beats;
     }
 
@@ -363,6 +368,7 @@
                             />
                         {/if}
                     {/each}
+
                     <!-- Header background -->
                     <rect
                         x={0}
@@ -372,6 +378,7 @@
                         fill="var(--bg-secondary)"
                         opacity="0.5"
                     />
+
                     <!-- Bar lines + numbers -->
                     {#each Array.from({ length: totalBars + 1 }, (_, i) => i) as i (i)}
                         <line
@@ -394,9 +401,10 @@
                             </text>
                         {/if}
                     {/each}
+
                     <!-- Beat lines + numbers -->
                     {#each Array.from({ length: totalBars }, (_, bar) => bar) as bar (bar)}
-                        {#each Array.from({ length: 4 }, (_, beat) => beat) as beat (beat)}
+                        {#each Array.from({ length: 3 }, (_, beat) => beat + 1) as beat (beat)}
                             {@const x = bar * timeline.barWidth + beat * timeline.beatWidth}
                             <line
                                 x1={x}

@@ -49,7 +49,7 @@
 {/each}
 
 <!-- Track lines -->
-{#each timeline.tracks as _, i (i)}
+{#each { length: timeline.tracks.length + 1 }, i}
     <line
         x1={0}
         y1={i * timeline.trackHeight}
