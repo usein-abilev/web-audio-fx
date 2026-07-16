@@ -99,6 +99,10 @@ class TimelineState {
         return this.beatWidth * GRID_STEP_VALUES[this.gridStep];
     }
 
+    get gridStepValue(): number {
+        return GRID_STEP_VALUES[this.gridStep];
+    }
+
     get barWidth(): number {
         return this.beatWidth * 4;
     }
@@ -537,9 +541,17 @@ class TimelineState {
         const fadeTime = Math.min(FADE_DURATION, clipDuration / 2);
         const endAt = startAt + clipDuration;
 
-        // fade in and out
-        clipGain.gain.setValueAtTime(0.001, startAt);
-        clipGain.gain.exponentialRampToValueAtTime(clip.volume, startAt + fadeTime);
+        // Fade in works only when offset is changed by the user
+        // It is so, because for kicks, snares and other fast-attack audio samples
+        // it is critical to keep sound as-is
+        if (offsetSeconds === 0) {
+            clipGain.gain.value = clip.volume;
+        } else {
+            clipGain.gain.setValueAtTime(0.001, startAt);
+            clipGain.gain.exponentialRampToValueAtTime(clip.volume, startAt + fadeTime);
+        }
+
+        // fade out
         clipGain.gain.setValueAtTime(clip.volume, endAt - fadeTime);
         clipGain.gain.exponentialRampToValueAtTime(0.001, endAt);
 

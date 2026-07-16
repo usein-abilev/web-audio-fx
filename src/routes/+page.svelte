@@ -53,7 +53,7 @@
                 return clip.id;
             }
 
-            const durationBeats = Math.max(1, Math.round(buffer.duration * (timeline.bpm / 60)));
+            const durationBeats = buffer.duration * (timeline.bpm / 60);
             const clip = timeline.addClip(sample.id, sample.name, trackId, time, durationBeats, 0);
             return clip.id;
         } finally {

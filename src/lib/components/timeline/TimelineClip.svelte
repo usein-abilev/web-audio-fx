@@ -44,6 +44,7 @@
     let isResizing = $state(false);
     let resizeEdge = $state<"left" | "right">("right");
     let resizeStartMouseX = $state(0);
+    let resizeStartMouseY = $state(0);
     let resizeStartClipTime = $state({ bar: 0, beat: 0 });
     let resizeStartClipDuration = $state({ bar: 0, beat: 0 });
     let resizeStartClipOffset = $state({ bar: 0, beat: 0 });
@@ -55,7 +56,7 @@
 
     function beatsToMusical(b: number) {
         const clamped = Math.max(0, b);
-        return { bar: Math.floor(clamped / 4), beat: Math.round((clamped % 4) * 100) / 100 };
+        return { bar: Math.floor(clamped / 4), beat: clamped % 4 };
     }
 
     function handleContextMenu(e: MouseEvent) {
@@ -104,6 +105,7 @@
         isResizing = true;
         resizeEdge = edge;
         resizeStartMouseX = e.clientX;
+        resizeStartMouseY = e.clientY;
         resizeStartClipTime = { ...clip.time };
         resizeStartClipDuration = { ...clip.duration };
         resizeStartClipOffset = { ...clip.offset };
@@ -116,12 +118,13 @@
         if (!isResizing) return;
 
         const { x: currentX } = screenToSvg(e.clientX, e.clientY);
-        const { x: startSvgX } = screenToSvg(resizeStartMouseX, e.clientY);
+        const { x: startSvgX } = screenToSvg(resizeStartMouseX, resizeStartMouseY);
         const svgDeltaX = currentX - startSvgX;
+
+        const { gridStepValue } = timeline;
 
         const deltaBeatsRaw = svgDeltaX / timeline.beatWidth;
         const gridStepBeats = timeline.stepWidth / timeline.beatWidth;
-        const deltaBeats = shiftHeld ? deltaBeatsRaw : Math.round(deltaBeatsRaw / gridStepBeats) * gridStepBeats;
 
         const bufferDurationBeats = clipBufferDuration * (timeline.bpm / 60);
 
@@ -129,15 +132,22 @@
         const oldOffsetBeats = resizeStartClipOffset.bar * 4 + resizeStartClipOffset.beat;
 
         if (resizeEdge === "right") {
+            const absoluteEdgeBeats = oldDurationBeats + deltaBeatsRaw;
+            const snappedEdgeBeats = shiftHeld
+                ? absoluteEdgeBeats
+                : Math.round(absoluteEdgeBeats / gridStepBeats) * gridStepBeats;
             const newDurationBeats = Math.max(
-                0.25,
-                Math.min(oldDurationBeats + deltaBeats, bufferDurationBeats - oldOffsetBeats),
+                shiftHeld ? 0.01 : gridStepValue,
+                Math.min(snappedEdgeBeats, bufferDurationBeats - oldOffsetBeats),
             );
             timeline.resizeClip(clip.id, { duration: beatsToMusical(newDurationBeats) });
         } else {
-            const newOffsetBeats = Math.max(0, Math.min(oldOffsetBeats + deltaBeats, bufferDurationBeats - 0.25));
+            const newOffsetBeats = Math.max(
+                0,
+                Math.min(oldOffsetBeats + deltaBeats, bufferDurationBeats - gridStepValue),
+            );
             const offsetDelta = newOffsetBeats - oldOffsetBeats;
-            const newDurationBeats = Math.max(0.25, oldDurationBeats - offsetDelta);
+            const newDurationBeats = Math.max(stpeValue, oldDurationBeats - offsetDelta);
             const oldTimeBeats = resizeStartClipTime.bar * 4 + resizeStartClipTime.beat;
             const newTimeBeats = Math.max(0, oldTimeBeats + offsetDelta);
             timeline.resizeClip(clip.id, {
