@@ -39,7 +39,6 @@ const GRID_STEP_VALUES: Record<GridStep, number> = {
 class TimelineState {
     bpm = $state(140);
     timeSignature = $state({ top: 4, bottom: 4 });
-    metronome = $state(false);
 
     clips = $state<TimelineClip[]>([]);
     tracks = $state<TimelineTrack[]>([
@@ -138,7 +137,7 @@ class TimelineState {
         return ((time.bar * 4 + time.beat) * 60) / this.bpm;
     }
 
-    getTotalDurationSeconds(): number {
+    getTotalDurationBeats(): number {
         let latestEndBeats = 0;
         for (const clip of this.clips) {
             const startBeats = clip.time.bar * 4 + clip.time.beat;
@@ -146,8 +145,11 @@ class TimelineState {
             const endBeats = startBeats + durationBeats;
             if (endBeats > latestEndBeats) latestEndBeats = endBeats;
         }
-        const roundedEndBeats = latestEndBeats > 0 ? Math.ceil(latestEndBeats / 4) * 4 : 4;
-        return (roundedEndBeats * 60) / this.bpm;
+        return latestEndBeats > 0 ? Math.ceil(latestEndBeats / 4) * 4 : 4;
+    }
+
+    getTotalDurationSeconds(): number {
+        return (this.getTotalDurationBeats() * 60) / this.bpm;
     }
 
     getTrackById(id: number): TimelineTrack | undefined {

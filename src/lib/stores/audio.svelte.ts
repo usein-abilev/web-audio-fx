@@ -1,7 +1,8 @@
 import PLUGINS from "$lib/audio/plugins/index";
 import type { AudioPlugin } from "$lib/audio/plugins/plugin";
 import { AudioSinkNode } from "$lib/audio/nodes/sink.node";
-import { timeline, MASTER_TRACK_ID, type TimelineClip, type TimelineTrack } from "./timeline.svelte";
+import { Scheduler } from "$lib/audio/scheduler";
+import { timeline, MASTER_TRACK_ID, type TimelineTrack } from "./timeline.svelte";
 import { samples } from "./samples.svelte";
 
 type TrackAudioState = {
@@ -15,11 +16,12 @@ class AudioEngine {
     private masterPostNode: TrackAudioState | null = null;
     private trackAudio = new Map<number, TrackAudioState>();
 
-    private activeSources: AudioBufferSourceNode[] = [];
     private animationFrame: number | null = null;
     private playbackStartTime = 0;
     private looping = false;
+    private scheduler: Scheduler | null = null;
 
+    metronome = $state(false);
     isPlaying = $state(false);
     playbackPosition = $state(0);
     isLoadingSample = $state(false);
@@ -259,14 +261,9 @@ class AudioEngine {
 
     private stopAudio(): void {
         this.stopCapture();
+        this.scheduler?.stop();
         this.isPlaying = false;
         this.looping = false;
-        this.activeSources.forEach((s) => {
-            try {
-                s.stop();
-            } catch {}
-        });
-        this.activeSources = [];
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
             this.animationFrame = null;
@@ -278,8 +275,22 @@ class AudioEngine {
         this.looping = true;
         this.isPlaying = true;
         this.playbackStartTime = this.audioContext!.currentTime - startOffsetSeconds;
-        this.scheduleAllClips();
-        this.startCursorAnimation();
+
+        await samples.prefetchClipBuffers(timeline.clips.map((c) => c.sampleId));
+
+        this.scheduler = new Scheduler(this.audioContext!, {
+            getTotalDurationBeats: () => timeline.getTotalDurationBeats(),
+            getTrackAudioState: (id) => this.getTrackAudioState(id),
+            getBufferSync: (id) => samples.getBufferSync(id),
+            getBPM: () => timeline.bpm,
+            getTimeSignature: () => timeline.timeSignature,
+            getClips: () => timeline.clips,
+            getMetronome: () => audio.metronome,
+        });
+        this.scheduler.start(this.playbackStartTime);
+
+        const totalDurationSeconds = timeline.getTotalDurationSeconds();
+        this.startCursorAnimation(totalDurationSeconds, timeline.bpm);
         await this.startCapture();
     }
 
@@ -315,111 +326,23 @@ class AudioEngine {
         this.playbackPosition = 0;
     }
 
-    private getTotalDurationSeconds(): number {
-        let latestEndBeats = 0;
-        for (const clip of timeline.clips) {
-            const startBeats = clip.time.bar * 4 + clip.time.beat;
-            const durationBeats = clip.duration.bar * 4 + clip.duration.beat;
-            const endBeats = startBeats + durationBeats;
-            if (endBeats > latestEndBeats) latestEndBeats = endBeats;
-        }
-        const roundedEndBeats = latestEndBeats > 0 ? Math.ceil(latestEndBeats / 4) * 4 : 4;
-        return (roundedEndBeats * 60) / timeline.bpm;
+    setMetronome(value: boolean) {
+        if (!this.scheduler) return;
+        this.metronome = value;
+        this.scheduler.setMetronome(value, audio.playbackPosition);
     }
 
-    private async scheduleAllClips(): Promise<void> {
-        if (!this.audioContext) return;
-
-        const totalDuration = this.getTotalDurationSeconds();
-
-        const fetchPromises = timeline.clips.map(async (clip) => {
-            if (!samples.hasBuffer(clip.sampleId)) {
-                await samples.getBuffer(clip.sampleId);
-            }
-        });
-        await Promise.allSettled(fetchPromises);
-
-        for (const clip of timeline.clips) {
-            this.scheduleClip(clip, this.playbackStartTime, totalDuration);
-        }
-    }
-
-    private scheduleClip(clip: TimelineClip, referenceTime: number, totalDuration: number): void {
-        if (!this.audioContext) return;
-
-        const trackState = this.getTrackAudioState(clip.trackId);
-        if (!trackState) return;
-
-        const track = timeline.getTrackById(clip.trackId);
-        if (track?.muted) return;
-
-        const buffer = samples.getBufferSync(clip.sampleId);
-        if (!buffer) return;
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = buffer;
-
-        const clipGain = this.audioContext.createGain();
-        source.connect(clipGain);
-        trackState.sinkNode.receiveInput(clipGain);
-
-        const clipStart = timeline.musicalTimeToSeconds(clip.time);
-        let clipDuration = timeline.musicalTimeToSeconds(clip.duration);
-        let offsetSeconds = timeline.musicalTimeToSeconds(clip.offset);
-        let startAt = referenceTime + clipStart;
-
-        const elapsedSinceClipStart = this.audioContext.currentTime - startAt;
-
-        if (elapsedSinceClipStart > 0) {
-            if (elapsedSinceClipStart >= clipDuration) return;
-            offsetSeconds += elapsedSinceClipStart;
-            clipDuration -= elapsedSinceClipStart;
-            startAt = this.audioContext.currentTime;
-        }
-
-        const FADE_DURATION = 0.01;
-        const fadeTime = Math.min(FADE_DURATION, clipDuration / 2);
-        const endAt = startAt + clipDuration;
-
-        if (offsetSeconds === 0) {
-            clipGain.gain.value = clip.volume;
-        } else {
-            clipGain.gain.setValueAtTime(0.001, startAt);
-            clipGain.gain.exponentialRampToValueAtTime(clip.volume, startAt + fadeTime);
-        }
-
-        clipGain.gain.setValueAtTime(clip.volume, endAt - fadeTime);
-        clipGain.gain.exponentialRampToValueAtTime(0.001, endAt);
-
-        source.start(startAt, offsetSeconds, clipDuration);
-
-        this.activeSources.push(source);
-    }
-
-    private startCursorAnimation(): void {
+    private startCursorAnimation(totalDurationSeconds: number, bpm: number): void {
         const animate = () => {
             if (!this.audioContext || !this.looping) return;
 
             const elapsed = this.audioContext.currentTime - this.playbackStartTime;
 
             if (this.isCaptureActive) {
-                this.playbackPosition = (elapsed * timeline.bpm) / 60;
+                this.playbackPosition = (elapsed * bpm) / 60;
             } else {
-                const totalDuration = this.getTotalDurationSeconds();
-                const positionSeconds = elapsed % totalDuration;
-
-                this.playbackPosition = (positionSeconds * timeline.bpm) / 60;
-
-                if (elapsed >= totalDuration) {
-                    this.playbackStartTime = this.audioContext.currentTime;
-                    this.activeSources.forEach((s) => {
-                        try {
-                            s.stop();
-                        } catch {}
-                    });
-                    this.activeSources = [];
-                    this.scheduleAllClips();
-                }
+                const positionSeconds = elapsed % totalDurationSeconds;
+                this.playbackPosition = (positionSeconds * bpm) / 60;
             }
 
             this.animationFrame = requestAnimationFrame(animate);

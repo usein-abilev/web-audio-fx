@@ -262,6 +262,7 @@
 
         const sampleId = e.dataTransfer?.getData("application/x-sample-id");
 
+        // Refactor this code out (move logic to some audio controller)
         if (sampleId) {
             const buffer = await samples.getBuffer(sampleId);
             if (!buffer) return;
@@ -700,6 +701,7 @@
         background: var(--bg-surface);
         border-right: 1px solid var(--border-color);
         align-self: start;
+        box-shadow: 0 0 20px rgb(0 0 0 / 45%);
     }
 
     .track-row {
@@ -768,9 +770,9 @@
         }
 
         .ms-btn.mute.active {
-            background: var(--error-color);
+            background: var(--accent-red);
             color: white;
-            border-color: var(--error-color);
+            border-color: var(--accent-red);
         }
 
         .ms-btn.solo.active {

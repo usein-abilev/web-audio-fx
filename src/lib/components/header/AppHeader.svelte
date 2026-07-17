@@ -1,6 +1,7 @@
 <script lang="ts">
     import BPMInput from "./BPMInput.svelte";
     import TimeSignatureSelect from "./TimeSignatureSelect.svelte";
+    import MetronomeToggle from "./MetronomeToggle.svelte";
     import TransportControls from "./TransportControls.svelte";
     import RecordButton from "./RecordButton.svelte";
     import ThemeToggle from "./ThemeToggle.svelte";
@@ -10,6 +11,7 @@
     <div class="header-items">
         <BPMInput />
         <TimeSignatureSelect />
+        <MetronomeToggle />
         <TransportControls />
         <RecordButton />
     </div>

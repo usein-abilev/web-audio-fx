@@ -25,7 +25,7 @@
         --text-secondary: #6a6a72;
         --accent-color: #7e2480;
         --accent-primary: #7e2480;
-        --error-color: #c62828;
+        --accent-red: #c62828;
         --success-color: #2e7d32;
         --orange-color: #df9339;
         --accent-blue: #3b5998;
@@ -48,7 +48,7 @@
         --text-secondary: #8a8a92;
         --accent-color: #c056c4;
         --accent-primary: #802382;
-        --error-color: #e63946;
+        --accent-red: #e63946;
         --success-color: #00e676;
         --orange-color: #df9339;
 

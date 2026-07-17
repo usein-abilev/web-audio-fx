@@ -19,3 +19,9 @@
         <circle cx="12" cy="12" r="5" fill="currentColor"></circle>
     </svg>
 </button>
+
+<style>
+    .svg-button.active {
+        color: var(--accent-red);
+    }
+</style>

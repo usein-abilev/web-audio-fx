@@ -106,6 +106,15 @@ class SampleStore {
         this.buffers.delete(sampleId);
     }
 
+    async prefetchClipBuffers(clipSampleIds: string[]): Promise<void> {
+        const fetchPromises = clipSampleIds.map(async (sampleId) => {
+            if (!this.hasBuffer(sampleId)) {
+                await this.getBuffer(sampleId);
+            }
+        });
+        await Promise.allSettled(fetchPromises);
+    }
+
     async deleteUserSample(sampleId: string): Promise<void> {
         if (this.db) {
             await deleteAudioFile(this.db, sampleId);

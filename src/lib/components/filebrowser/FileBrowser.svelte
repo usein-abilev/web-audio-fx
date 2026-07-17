@@ -257,7 +257,7 @@
 
 <style>
     .file-browser {
-        width: 180px;
+        width: 200px;
         min-width: 180px;
         background: var(--bg-secondary);
         border-right: 1px solid var(--border-color);
@@ -277,13 +277,13 @@
 
     .tab-btn {
         flex: 1;
-        padding: 6px 8px;
+        padding: 8px;
         background: none;
         border: none;
         border-bottom: 2px solid transparent;
         color: var(--text-secondary);
         cursor: pointer;
-        font-size: 11px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
