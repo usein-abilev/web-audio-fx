@@ -143,10 +143,11 @@
             );
             timeline.resizeClip(clip.id, { duration: beatsToMusical(newDurationBeats) });
         } else {
-            const newOffsetBeats = Math.max(
-                0,
-                Math.min(oldOffsetBeats + deltaBeatsRaw, bufferDurationBeats - gridStepValue),
-            );
+            const rawOffsetBeats = oldOffsetBeats + deltaBeatsRaw;
+            const snappedOffsetBeats = shiftHeld
+                ? rawOffsetBeats
+                : Math.round(rawOffsetBeats / gridStepBeats) * gridStepBeats;
+            const newOffsetBeats = Math.max(0, Math.min(snappedOffsetBeats, bufferDurationBeats - gridStepValue));
             const offsetDelta = newOffsetBeats - oldOffsetBeats;
             const newDurationBeats = Math.max(gridStepValue, oldDurationBeats - offsetDelta);
             const oldTimeBeats = resizeStartClipTime.bar * 4 + resizeStartClipTime.beat;
