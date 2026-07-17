@@ -7,6 +7,7 @@
     import TimelineClip from "./TimelineClip.svelte";
     import PlaybackCursor from "./PlaybackCursor.svelte";
     import RangeSlider from "$lib/components/ui/RangeSlider.svelte";
+    import { onMount } from "svelte";
 
     let {
         onTimelineClick,
@@ -30,13 +31,17 @@
     let shiftHeld = false;
     let ctrlHeld = false;
 
+    let isDragOver = $state(false);
+
     let isMarquee = $state(false);
     let marqueeStartX = $state(0);
     let marqueeStartY = $state(0);
     let marqueeCurrentX = $state(0);
     let marqueeCurrentY = $state(0);
 
-    $effect(() => {
+    let isHeaderScrubbing = $state(false);
+
+    onMount(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Shift") shiftHeld = true;
             if (e.key === "Control" || e.key === "Meta") ctrlHeld = true;
@@ -59,6 +64,13 @@
             document.removeEventListener("keydown", handleKeyDown);
             document.removeEventListener("keyup", handleKeyUp);
         };
+    });
+
+    $effect(() => {
+        const el = wrapperEl;
+        if (!el) return;
+        el.addEventListener("wheel", handleWheel, { passive: false });
+        return () => el.removeEventListener("wheel", handleWheel);
     });
 
     function screenToSvg(clientX: number, clientY: number): { x: number; y: number } {
@@ -170,23 +182,21 @@
         document.removeEventListener("mouseup", handleDragEnd);
     }
 
-    let isScrubbing = $state(false);
-
     function handleHeaderMouseDown(e: MouseEvent) {
         if (e.button !== 0) return;
-        isScrubbing = true;
+        isHeaderScrubbing = true;
         setPlayheadFromMouse(e);
         document.addEventListener("mousemove", handleHeaderMouseMove);
         document.addEventListener("mouseup", handleHeaderMouseUp);
     }
 
     function handleHeaderMouseMove(e: MouseEvent) {
-        if (!isScrubbing) return;
+        if (!isHeaderScrubbing) return;
         setPlayheadFromMouse(e);
     }
 
     function handleHeaderMouseUp() {
-        isScrubbing = false;
+        isHeaderScrubbing = false;
         document.removeEventListener("mousemove", handleHeaderMouseMove);
         document.removeEventListener("mouseup", handleHeaderMouseUp);
     }
@@ -239,12 +249,37 @@
 
     async function handleFileDrop(e: DragEvent) {
         e.preventDefault();
-        const file = e.dataTransfer?.files[0];
-        if (!file) return;
+        isDragOver = false;
 
-        const sampleId = await samples.uploadFile(file);
-        if (sampleId) {
-            ui.selectedSampleId = sampleId;
+        const files = Array.from(e.dataTransfer?.files ?? []);
+        if (!files.length) return;
+
+        const { x, y } = screenToSvg(e.clientX, e.clientY);
+        if (x < 0) return;
+
+        const trackId = timeline.yToTrackId(y);
+        if (trackId === MASTER_TRACK_ID) return;
+
+        const time = timeline.xToMusicalTime(x);
+        const createdClipIds: number[] = [];
+
+        for (const file of files) {
+            const sampleId = await samples.uploadFile(file);
+            if (!sampleId) continue;
+
+            const buffer = await samples.getBuffer(sampleId);
+            if (!buffer) continue;
+
+            const sampleName = samples.getSampleName(sampleId) ?? file.name;
+            const durationBeats = buffer.duration * (timeline.bpm / 60);
+            const clip = timeline.addClip(sampleId, sampleName, trackId, time, durationBeats, 0);
+            createdClipIds.push(clip.id);
+        }
+
+        if (createdClipIds.length === 1) {
+            ui.selectClip(createdClipIds[0]);
+        } else if (createdClipIds.length > 1) {
+            ui.setSelectedClips(createdClipIds);
         }
     }
 
@@ -317,13 +352,6 @@
         }
     }
 
-    $effect(() => {
-        const el = wrapperEl;
-        if (!el) return;
-        el.addEventListener("wheel", handleWheel, { passive: false });
-        return () => el.removeEventListener("wheel", handleWheel);
-    });
-
     function handleWheel(e: WheelEvent) {
         if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
@@ -353,14 +381,17 @@
 
 <div
     class="timeline-wrapper"
+    class:drag-over={isDragOver}
     bind:this={wrapperEl}
     onkeydown={handleKeydown}
     tabindex="0"
     role="application"
     ondragover={(e) => {
         e.preventDefault();
+        isDragOver = true;
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     }}
+    ondragleave={() => (isDragOver = false)}
     ondrop={handleFileDrop}
 >
     <div class="timeline-scroll">
@@ -689,6 +720,11 @@
         user-select: none;
     }
 
+    .timeline-wrapper.drag-over {
+        outline: 2px dashed var(--accent-primary);
+        outline-offset: -2px;
+    }
+
     .timeline-scroll {
         flex: 1;
         overflow: auto;
@@ -698,6 +734,7 @@
         display: grid;
         grid-template-columns: 140px auto;
         grid-template-rows: 24px auto;
+        width: min-content;
     }
 
     .corner {

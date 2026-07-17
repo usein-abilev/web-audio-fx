@@ -17,8 +17,9 @@
     let previewingSampleId = $state<string | null>(null);
     let previewSource = $state<AudioBufferSourceNode | null>(null);
     let isPreviewPlaying = $state(false);
+    let isDragOver = $state(false);
 
-    function handleClick(id: string) {
+    function handleClick(_: MouseEvent, id: string) {
         ui.selectedSampleId = id;
         onSampleClick?.(id);
     }
@@ -99,9 +100,35 @@
         }
         await sampleStore.deleteUserSample(sampleId);
     }
+
+    function handleDragOver(e: DragEvent) {
+        e.preventDefault();
+        isDragOver = true;
+        activeTab = "my-samples";
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    }
+
+    function handleDragLeave() {
+        isDragOver = false;
+    }
+
+    async function handleDrop(e: DragEvent) {
+        e.preventDefault();
+        isDragOver = false;
+        const files = Array.from(e.dataTransfer?.files ?? []);
+        for (const file of files) {
+            await sampleStore.uploadFile(file);
+        }
+    }
 </script>
 
-<aside class="file-browser">
+<aside
+    class="file-browser"
+    class:drag-over={isDragOver}
+    ondragover={handleDragOver}
+    ondragleave={handleDragLeave}
+    ondrop={handleDrop}
+>
     <div class="browser-tabs">
         <button class="tab-btn" class:active={activeTab === "built-in"} onclick={() => (activeTab = "built-in")}>
             Built-in
@@ -136,7 +163,7 @@
                                 </svg>
                             {/if}
                         </button>
-                        <button class="name-btn" onclick={() => handleClick(sample.id)}>
+                        <button class="name-btn" onclick={(e) => handleClick(e, sample.id)}>
                             {sample.name}
                         </button>
                     </div>
@@ -167,7 +194,7 @@
                                 </svg>
                             {/if}
                         </button>
-                        <button class="name-btn" onclick={() => handleClick(sample.id)}>
+                        <button class="name-btn" onclick={(e) => handleClick(e, sample.id)}>
                             {sample.name}
                         </button>
                         <button class="delete-btn" onclick={() => handleDelete(sample.id)} aria-label="Delete sample">
@@ -202,6 +229,10 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+    }
+
+    .file-browser.drag-over {
+        border: 2px dashed var(--accent-primary);
     }
 
     .browser-tabs {
