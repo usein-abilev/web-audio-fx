@@ -93,30 +93,4 @@ export class ReverbPlugin extends AudioPlugin {
     private setIRBuffer(buffer: AudioBuffer) {
         this.convolver.buffer = buffer;
     }
-
-    // render(parent: HTMLElement) {
-    //     const typeOptions = IMPULSE_RESPONSES.map((ir) => ({
-    //         value: ir.path,
-    //         displayText: ir.title,
-    //     }));
-    //     const onTypeChange = (path: string) => {
-    //         if (this.selectedIRPath === path) return;
-    //         this.selectedIRPath = path;
-    //         console.log("(reverb): Loading IR from path:", path);
-    //         fetchAudioAsArrayBuffer(path)
-    //             .then((buffer) => this.audioContext.decodeAudioData(buffer))
-    //             .then((buffer) => this.setIRBuffer(buffer))
-    //             .catch((error) => console.error("Error fetching IR audio buffer:", error));
-    //     };
-    //     if (!this.selectedIRPath) {
-    //         onTypeChange(IMPULSE_RESPONSES[0].path);
-    //     }
-    //     const container = builder.createContainer(
-    //         builder.select("Type", onTypeChange, { options: typeOptions, selectedValue: this.selectedIRPath }),
-    //         this.mixSliderElement,
-    //     );
-    //
-    //     parent.innerHTML = "";
-    //     parent.appendChild(container);
-    // }
 }

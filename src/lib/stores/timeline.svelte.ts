@@ -184,6 +184,10 @@ class TimelineState {
         return clip;
     }
 
+    removeClipsBySampleId(sampleId: string) {
+        this.clips = this.clips.filter((c) => c.sampleId !== sampleId);
+    }
+
     removeClips(ids: number[]): void {
         this.clips = this.clips.filter((c) => !ids.includes(c.id));
     }

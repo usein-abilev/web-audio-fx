@@ -28,6 +28,9 @@
         --error-color: #c62828;
         --success-color: #2e7d32;
         --orange-color: #df9339;
+        --accent-blue: #3b5998;
+        --accent-blue-dark: #2a3f73;
+        --accent-green: #3a8a5c;
         --font-family: "Inter", sans-serif;
         --box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
         --grid-color: #c8c8cc;
@@ -48,6 +51,10 @@
         --error-color: #e63946;
         --success-color: #00e676;
         --orange-color: #df9339;
+
+        --accent-blue: #3b5998;
+        --accent-blue-dark: #2a3f73;
+        --accent-green: #3a8a5c;
         --grid-color: #3a3a40;
         --grid-bar-color: #4a4a50;
     }
