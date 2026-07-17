@@ -88,7 +88,6 @@
 
         if (!ui.isClipSelected(clipId)) {
             ui.selectClip(clipId, false);
-            ui.selectedSampleId = clip.sampleId;
         }
 
         isDragging = true;

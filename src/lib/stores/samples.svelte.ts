@@ -25,6 +25,7 @@ class SampleStore {
 
     /**
      * Stores general info of any recorded/uploaded audio files
+     * It is used by FileBrowser primarily.
      */
     userSamples = $state<UserSample[]>([]);
 

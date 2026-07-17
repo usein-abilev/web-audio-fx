@@ -73,13 +73,11 @@
 
         if (addToSelection) {
             ui.selectClip(clip.id, true);
-            ui.selectedSampleId = clip.sampleId;
             return;
         }
 
         if (!ui.isClipSelected(clip.id)) {
             ui.selectClip(clip.id, false);
-            ui.selectedSampleId = clip.sampleId;
         }
 
         const svg = (e.currentTarget as HTMLElement).closest("svg");
