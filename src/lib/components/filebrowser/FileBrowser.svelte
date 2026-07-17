@@ -18,6 +18,7 @@
     let previewSource = $state<AudioBufferSourceNode | null>(null);
     let isPreviewPlaying = $state(false);
     let isDragOver = $state(false);
+    let draggingLocal = $state(false);
 
     function handleClick(_: MouseEvent, id: string) {
         ui.selectedSampleId = id;
@@ -98,10 +99,18 @@
             const confirmed = confirm("This sample is used in timeline clips. Delete anyway?");
             if (!confirmed) return;
         }
-        await sampleStore.deleteUserSample(sampleId);
+        try {
+            await sampleStore.deleteUserSample(sampleId);
+            timeline.removeClipsBySampleId(sampleId);
+        } catch (error) {
+            alert("Failed to delete this sample");
+            console.error(error);
+        }
     }
 
     function handleDragOver(e: DragEvent) {
+        if (draggingLocal) return;
+
         e.preventDefault();
         isDragOver = true;
         activeTab = "my-samples";
@@ -113,12 +122,26 @@
     }
 
     async function handleDrop(e: DragEvent) {
+        if (draggingLocal) return;
+
         e.preventDefault();
         isDragOver = false;
         const files = Array.from(e.dataTransfer?.files ?? []);
         for (const file of files) {
             await sampleStore.uploadFile(file);
         }
+    }
+
+    function handleSampleDragStart(e: DragEvent, sampleId: string) {
+        if (e.dataTransfer) {
+            e.dataTransfer.setData("application/x-sample-id", sampleId);
+            e.dataTransfer.dropEffect = "copy";
+        }
+        draggingLocal = true;
+    }
+
+    function handleSampleDragEnd() {
+        draggingLocal = false;
     }
 </script>
 
@@ -143,7 +166,13 @@
                 <div class="empty">No samples loaded</div>
             {:else}
                 {#each samples as sample (sample.id)}
-                    <div class="browser-item" class:active={ui.selectedSampleId === sample.id}>
+                    <div
+                        class="browser-item"
+                        class:active={ui.selectedSampleId === sample.id}
+                        draggable="true"
+                        ondragstart={(e) => handleSampleDragStart(e, sample.id)}
+                        ondragend={handleSampleDragEnd}
+                    >
                         <button
                             class="play-btn"
                             class:playing={previewingSampleId === sample.id && isPreviewPlaying}
@@ -174,7 +203,13 @@
                 <div class="empty">No recordings or uploads yet</div>
             {:else}
                 {#each sampleStore.userSamples as sample (sample.id)}
-                    <div class="browser-item" class:active={ui.selectedSampleId === sample.id}>
+                    <div
+                        class="browser-item"
+                        class:active={ui.selectedSampleId === sample.id}
+                        draggable="true"
+                        ondragstart={(e) => handleSampleDragStart(e, sample.id)}
+                        ondragend={handleSampleDragEnd}
+                    >
                         <button
                             class="play-btn"
                             class:playing={previewingSampleId === sample.id && isPreviewPlaying}
@@ -273,6 +308,7 @@
         align-items: center;
         gap: 0;
         width: 100%;
+        cursor: grab;
     }
 
     .browser-item.active {

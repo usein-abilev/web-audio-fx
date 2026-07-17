@@ -219,33 +219,47 @@
 
     <!-- Waveform -->
     <g transform="translate({x}, {y + 20})">
-        <path d={waveformPath} stroke="var(--text-primary)" stroke-width="1" fill="none" opacity="0.6" />
+        <path d={waveformPath} stroke="#111" stroke-width="1" fill="none" opacity="0.6" />
     </g>
 
-    <!-- Volume fill -->
-    <rect
-        {x}
-        y={y + 20 + waveHeight * (1 - clip.volume)}
-        width={clipWidth}
-        height={waveHeight * clip.volume}
-        fill="var(--accent-primary)"
-        opacity="0.15"
-        pointer-events="none"
-    />
-
-    <!-- Volume handle -->
+    <!-- Volume indicator (shown on hover) -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <line
-        x1={x}
-        y1={y + 20 + waveHeight * (1 - clip.volume)}
-        x2={x + clipWidth}
-        y2={y + 20 + waveHeight * (1 - clip.volume)}
-        stroke="var(--accent-primary)"
-        stroke-width="2"
-        style="cursor: ns-resize;"
-        onmousedown={handleVolumeStart}
-    />
+    <g class="volume-indicator">
+        <rect
+            {x}
+            y={y + 20 + waveHeight * (1 - clip.volume)}
+            width={clipWidth}
+            height={waveHeight * clip.volume}
+            fill="var(--accent-primary)"
+            opacity="0.15"
+            pointer-events="none"
+        />
+        <line
+            x1={x}
+            y1={y + 20 + waveHeight * (1 - clip.volume)}
+            x2={x + clipWidth}
+            y2={y + 20 + waveHeight * (1 - clip.volume)}
+            stroke="var(--accent-primary)"
+            stroke-width="2"
+            style="cursor: ns-resize;"
+            onmousedown={handleVolumeStart}
+        />
+        {#if clipWidth > 25}
+            <text
+                x={x + clipWidth - 4}
+                y={y + 20 + waveHeight * (1 - clip.volume) - (clip.volume < 0.75 ? 4 : -10)}
+                fill="var(--text-primary)"
+                font-size="10"
+                font-weight="600"
+                font-family="var(--font-family)"
+                text-anchor="end"
+                pointer-events="none"
+            >
+                {Math.round(clip.volume * 100)}%
+            </text>
+        {/if}
+    </g>
 
     <!-- Resize handles -->
     <rect
@@ -279,6 +293,15 @@
 
     .clip:hover rect:first-child {
         filter: brightness(1.1);
+    }
+
+    .volume-indicator {
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .clip:hover .volume-indicator {
+        opacity: 1;
     }
 
     .clip-name {

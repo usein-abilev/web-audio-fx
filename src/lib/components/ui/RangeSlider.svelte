@@ -3,6 +3,7 @@
         value = 0.5,
         min = 0,
         max = 1,
+        defaultValue = 0.5,
         label = "",
         formatter = (v: number) => v.toFixed(2),
         onchange,
@@ -10,6 +11,7 @@
         value: number;
         min?: number;
         max?: number;
+        defaultValue?: number;
         label?: string;
         formatter?: (v: number) => string;
         onchange: (value: number) => void;
@@ -23,9 +25,13 @@
         const v = parseFloat((e.target as HTMLInputElement).value);
         onchange(v);
     }
+
+    function handleDoubleClick() {
+        onchange(defaultValue);
+    }
 </script>
 
-<div class="slider-wrap">
+<div class="slider-wrap" ondblclick={handleDoubleClick}>
     <span class="slider-value">{formatter(value)}</span>
     <div class="slider-row">
         {#if label}

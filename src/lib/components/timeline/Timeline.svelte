@@ -8,6 +8,7 @@
     import PlaybackCursor from "./PlaybackCursor.svelte";
     import RangeSlider from "$lib/components/ui/RangeSlider.svelte";
     import { onMount } from "svelte";
+    import RotaryKnob from "../ui/RotaryKnob.svelte";
 
     let {
         onTimelineClick,
@@ -21,7 +22,6 @@
     const totalBars = 32;
     const gridWidth = $derived(totalBars * timeline.barWidth);
     const totalHeight = $derived(timeline.totalHeight);
-    const masterY = $derived(timeline.tracks.length * timeline.trackHeight);
 
     let isDragging = $state(false);
     let dragStartMouseX = $state(0);
@@ -251,9 +251,6 @@
         e.preventDefault();
         isDragOver = false;
 
-        const files = Array.from(e.dataTransfer?.files ?? []);
-        if (!files.length) return;
-
         const { x, y } = screenToSvg(e.clientX, e.clientY);
         if (x < 0) return;
 
@@ -263,17 +260,32 @@
         const time = timeline.xToMusicalTime(x);
         const createdClipIds: number[] = [];
 
-        for (const file of files) {
-            const sampleId = await samples.uploadFile(file);
-            if (!sampleId) continue;
+        const sampleId = e.dataTransfer?.getData("application/x-sample-id");
 
+        if (sampleId) {
             const buffer = await samples.getBuffer(sampleId);
-            if (!buffer) continue;
+            if (!buffer) return;
 
-            const sampleName = samples.getSampleName(sampleId) ?? file.name;
+            const sampleName = samples.getSampleName(sampleId) ?? "Sample";
             const durationBeats = buffer.duration * (timeline.bpm / 60);
             const clip = timeline.addClip(sampleId, sampleName, trackId, time, durationBeats, 0);
             createdClipIds.push(clip.id);
+        } else {
+            const files = Array.from(e.dataTransfer?.files ?? []);
+            if (!files.length) return;
+
+            for (const file of files) {
+                const uploadedId = await samples.uploadFile(file);
+                if (!uploadedId) continue;
+
+                const buffer = await samples.getBuffer(uploadedId);
+                if (!buffer) continue;
+
+                const sampleName = samples.getSampleName(uploadedId) ?? file.name;
+                const durationBeats = buffer.duration * (timeline.bpm / 60);
+                const clip = timeline.addClip(uploadedId, sampleName, trackId, time, durationBeats, 0);
+                createdClipIds.push(clip.id);
+            }
         }
 
         if (createdClipIds.length === 1) {
@@ -483,91 +495,21 @@
 
             <!-- Track pane: sticky left, scrolls vertically -->
             <div class="track-pane">
-                <svg width={timeline.trackPaneWidth} height={totalHeight} class="track-pane-svg">
-                    <rect x={0} y={0} width={timeline.trackPaneWidth} height={totalHeight} fill="var(--bg-surface)" />
-
-                    {#each timeline.tracks as track, i}
-                        {@const rowY = i * timeline.trackHeight}
-                        <rect
-                            x={0}
-                            y={rowY}
-                            width={timeline.trackPaneWidth}
-                            height={timeline.trackHeight}
-                            fill={ui.selectedTrackId === track.id
-                                ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
-                                : "transparent"}
-                            class="track-hitarea"
-                            role="button"
-                            tabindex="-1"
-                            onkeydown={() => {}}
-                            onclick={() => {
-                                ui.selectedTrackId = track.id;
-                            }}
-                        />
-
-                        <!-- Track name -->
-                        <text
-                            x={8}
-                            y={rowY + 12}
-                            fill={ui.selectedTrackId === track.id ? "var(--accent-primary)" : "var(--text-secondary)"}
-                            font-size="11"
-                            font-family="var(--font-family)"
-                            font-weight={ui.selectedTrackId === track.id ? "600" : "400"}
-                            pointer-events="none"
-                        >
-                            {track.name}
-                        </text>
-
-                        <!-- Volume slider -->
-                        <foreignObject
-                            x={0}
-                            y={rowY + 18}
-                            width={timeline.trackPaneWidth}
-                            height={24}
-                            pointer-events="all"
-                        >
-                            <RangeSlider
-                                value={track.gain}
-                                label="Vol"
-                                min={0}
-                                max={1}
-                                formatter={(v) => `${Math.round(v * 100)}%`}
-                                onchange={(v) => handleGainChange(track.id, v)}
-                            />
-                        </foreignObject>
-
-                        <!-- Pan slider -->
-                        <foreignObject
-                            x={0}
-                            y={rowY + 44}
-                            width={timeline.trackPaneWidth}
-                            height={24}
-                            pointer-events="all"
-                        >
-                            <RangeSlider
-                                value={(track.pan + 1) / 2}
-                                label="Pan"
-                                min={0}
-                                max={1}
-                                formatter={(v) => {
-                                    const pan = v * 2 - 1;
-                                    if (Math.abs(pan) < 0.05) return "C";
-                                    return pan < 0
-                                        ? `L${Math.round(Math.abs(pan) * 100)}`
-                                        : `R${Math.round(pan * 100)}`;
-                                }}
-                                onchange={(v) => handlePanChange(track.id, v * 2 - 1)}
-                            />
-                        </foreignObject>
-
-                        <!-- M/S buttons (rendered last = on top) -->
-                        <foreignObject
-                            x={timeline.trackPaneWidth - 42}
-                            y={rowY + 1}
-                            width={38}
-                            height={16}
-                            pointer-events="all"
-                        >
+                {#each timeline.tracks as track, i}
+                    <div
+                        class="track-row"
+                        class:selected={ui.selectedTrackId === track.id}
+                        role="button"
+                        tabindex="-1"
+                        onkeydown={() => {}}
+                        onclick={() => {
+                            ui.selectedTrackId = track.id;
+                        }}
+                    >
+                        <div class="track-row-header">
+                            <span class="track-name" class:selected={ui.selectedTrackId === track.id}>
+                                {track.name}
+                            </span>
                             <div class="ms-buttons">
                                 <button
                                     class="ms-btn mute"
@@ -586,73 +528,65 @@
                                     }}>S</button
                                 >
                             </div>
-                        </foreignObject>
-                    {/each}
-
-                    <!-- Master track separator -->
-                    <line
-                        x1={0}
-                        y1={masterY}
-                        x2={timeline.trackPaneWidth}
-                        y2={masterY}
-                        stroke="var(--border-color)"
-                        stroke-width="2"
-                    />
-                    <rect
-                        x={0}
-                        y={masterY}
-                        width={timeline.trackPaneWidth}
-                        height={timeline.trackHeight}
-                        fill={ui.selectedTrackId === MASTER_TRACK_ID
-                            ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
-                            : "transparent"}
-                        class="track-hitarea"
-                        role="button"
-                        tabindex="-1"
-                        onkeydown={() => {}}
-                        onclick={() => {
-                            ui.selectedTrackId = MASTER_TRACK_ID;
-                        }}
-                    />
-                    <text
-                        x={8}
-                        y={masterY + 12}
-                        fill={ui.selectedTrackId === MASTER_TRACK_ID
-                            ? "var(--accent-primary)"
-                            : "var(--text-secondary)"}
-                        font-size="11"
-                        font-family="var(--font-family)"
-                        font-weight={ui.selectedTrackId === MASTER_TRACK_ID ? "600" : "400"}
-                        pointer-events="none"
-                    >
-                        Master
-                    </text>
-                    <!-- Volume slider -->
-                    <foreignObject
-                        x={0}
-                        y={masterY + 18}
-                        width={timeline.trackPaneWidth}
-                        height={24}
-                        pointer-events="all"
-                    >
+                        </div>
+                        <div class="track-controls">
+                            <RangeSlider
+                                value={track.gain}
+                                defaultValue={1}
+                                min={0}
+                                max={1}
+                                formatter={(v) => `${Math.round(v * 100)} %`}
+                                onchange={(v) => handleGainChange(track.id, v)}
+                            />
+                            <RotaryKnob
+                                label=""
+                                value={(track.pan + 1) / 2}
+                                min={0}
+                                max={1}
+                                formatter={() => ""}
+                                onchange={(v) => handlePanChange(track.id, v * 2 - 1)}
+                            />
+                            <!--     <RangeSlider -->
+                            <!--         value={(track.pan + 1) / 2} -->
+                            <!--         min={0} -->
+                            <!--         max={1} -->
+                            <!--         formatter={(v) => { -->
+                            <!--             const pan = v * 2 - 1; -->
+                            <!--             if (Math.abs(pan) < 0.05) return "C"; -->
+                            <!--             return pan < 0 -->
+                            <!--                 ? `L${Math.round(Math.abs(pan) * 100)}` -->
+                            <!--                 : `R${Math.round(pan * 100)}`; -->
+                            <!--         }} -->
+                            <!--         onchange={(v) => handlePanChange(track.id, v * 2 - 1)} -->
+                            <!--     /> -->
+                        </div>
+                    </div>
+                {/each}
+                <div class="master-separator"></div>
+                <div
+                    class="track-row"
+                    class:selected={ui.selectedTrackId === MASTER_TRACK_ID}
+                    role="button"
+                    tabindex="-1"
+                    onkeydown={() => {}}
+                    onclick={() => {
+                        ui.selectedTrackId = MASTER_TRACK_ID;
+                    }}
+                >
+                    <div class="track-row-header">
+                        <span class="track-name" class:selected={ui.selectedTrackId === MASTER_TRACK_ID}> Master </span>
+                    </div>
+                    <div class="track-controls">
                         <RangeSlider
                             value={timeline.masterTrack.gain}
+                            defaultValue={1}
                             label="Vol"
                             min={0}
                             max={1}
                             formatter={(v) => `${Math.round(v * 100)}%`}
                             onchange={(v) => handleGainChange(MASTER_TRACK_ID, v)}
                         />
-                    </foreignObject>
-                    <!-- Pan slider -->
-                    <foreignObject
-                        x={0}
-                        y={masterY + 44}
-                        width={timeline.trackPaneWidth}
-                        height={24}
-                        pointer-events="all"
-                    >
-                        <RangeSlider
+                        <RotaryKnob
                             value={(timeline.masterTrack.pan + 1) / 2}
                             label="Pan"
                             min={0}
@@ -664,8 +598,8 @@
                             }}
                             onchange={(v) => handlePanChange(MASTER_TRACK_ID, v * 2 - 1)}
                         />
-                    </foreignObject>
-                </svg>
+                    </div>
+                </div>
             </div>
 
             <!-- Grid content: defines the scroll area size -->
@@ -732,7 +666,7 @@
 
     .timeline-grid {
         display: grid;
-        grid-template-columns: 140px auto;
+        grid-template-columns: 200px auto;
         grid-template-rows: 24px auto;
         width: min-content;
     }
@@ -765,10 +699,99 @@
         z-index: 2;
         background: var(--bg-surface);
         border-right: 1px solid var(--border-color);
+        align-self: start;
     }
 
-    .track-pane-svg {
-        display: block;
+    .track-row {
+        height: var(--track-height, 82px);
+        position: relative;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+        padding: 8px;
+        box-sizing: border-box;
+        border-bottom: 1px solid var(--grid-color);
+
+        .track-controls {
+            display: flex;
+            :global(input.slider-input) {
+                height: 8px;
+                border-radius: 20px;
+            }
+        }
+    }
+    .track-row-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .track-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 400;
+            line-height: 1;
+            pointer-events: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .track-name.selected {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .ms-buttons {
+            display: flex;
+            gap: 2px;
+            align-items: flex-start;
+            justify-content: flex-end;
+        }
+
+        .ms-btn {
+            width: 18px;
+            height: 16px;
+            font-size: 9px;
+            line-height: 14px;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            background: var(--bg-main);
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ms-btn.mute.active {
+            background: var(--error-color);
+            color: white;
+            border-color: var(--error-color);
+        }
+
+        .ms-btn.solo.active {
+            background: var(--orange-color);
+            color: white;
+            border-color: var(--orange-color);
+        }
+
+        .ms-btn:hover {
+            opacity: 0.8;
+        }
+    }
+
+    .track-row.selected {
+        background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+    }
+
+    .master-separator {
+        height: 2px;
+        background: var(--border-color);
+        flex-shrink: 0;
     }
 
     .grid-svg {
@@ -783,49 +806,5 @@
     .grid-svg.loading {
         cursor: wait;
         pointer-events: none;
-    }
-
-    .track-hitarea {
-        cursor: pointer;
-    }
-
-    .ms-buttons {
-        display: flex;
-        gap: 2px;
-        align-items: flex-start;
-        justify-content: flex-end;
-    }
-
-    .ms-btn {
-        width: 18px;
-        height: 16px;
-        font-size: 9px;
-        font-weight: 700;
-        border: 1px solid var(--border-color);
-        border-radius: 2px;
-        background: var(--bg-main);
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1;
-    }
-
-    .ms-btn.mute.active {
-        background: var(--error-color);
-        color: white;
-        border-color: var(--error-color);
-    }
-
-    .ms-btn.solo.active {
-        background: var(--orange-color);
-        color: white;
-        border-color: var(--orange-color);
-    }
-
-    .ms-btn:hover {
-        opacity: 0.8;
     }
 </style>
