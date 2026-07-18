@@ -1,12 +1,13 @@
 <script lang="ts">
     import { timeline } from "$lib/stores/timeline.svelte";
     import { audio } from "$lib/stores/audio.svelte";
-    import { samples } from "$lib/stores/samples.svelte";
+    import { bufferStore } from "$lib/stores/buffer.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import WaveformDisplay from "./WaveformDisplay.svelte";
     import EditorControls from "./EditorControls.svelte";
+    import { reverseTimelineClip } from "$lib/actions/app.actions";
 
-    let audioBuffer = $state<AudioBuffer | null>(null);
+    let audioBuffer = $state<AudioBuffer | null>();
     let isLoading = $state(false);
 
     $effect(() => {
@@ -16,24 +17,24 @@
             return;
         }
 
-        const clip = timeline.clips.find((c) => c.id === clipId);
+        const clip = timeline.getClip(clipId);
         if (!clip) {
             audioBuffer = null;
             return;
         }
 
-        const cached = samples.getBufferSync(clip.sampleId);
+        const cached = bufferStore.getBuffer(clip.bufferId);
         if (cached) {
             audioBuffer = cached;
             return;
         }
-
-        isLoading = true;
-        samples.getBuffer(clip.sampleId).then((buf) => {
-            audioBuffer = buf;
-            isLoading = false;
-        });
     });
+
+    async function handleReverse() {
+        const clipId = ui.selectedClipIds.size > 0 ? [...ui.selectedClipIds][0] : null;
+        if (!clipId) return;
+        await reverseTimelineClip(clipId);
+    }
 
     function toggleViewer() {
         ui.bufferViewerOpen = !ui.bufferViewerOpen;
@@ -58,7 +59,7 @@
                 <div class="loading">Loading...</div>
             {:else if audioBuffer}
                 <WaveformDisplay {audioBuffer} />
-                <EditorControls {audioBuffer} audioContext={audio.context} />
+                <EditorControls {audioBuffer} audioContext={audio.context} onReverse={handleReverse} />
             {:else if ui.selectedClipIds.size > 0}
                 <div class="empty">Failed to load sample</div>
             {:else}

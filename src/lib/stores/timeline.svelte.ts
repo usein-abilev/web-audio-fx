@@ -1,3 +1,5 @@
+import { bufferStore } from "./buffer.svelte";
+
 export type MusicalTime = {
     bar: number;
     beat: number;
@@ -5,13 +7,16 @@ export type MusicalTime = {
 
 export type TimelineClip = {
     id: number;
+    name: string;
     sampleId: string;
-    sampleName: string;
+    bufferId: string;
     time: MusicalTime;
     trackId: number;
     duration: MusicalTime;
     offset: MusicalTime;
-    volume: number;
+    params: {
+        volume: number;
+    };
 };
 
 export type TimelineTrack = {
@@ -157,9 +162,14 @@ class TimelineState {
         return this.tracks.find((t) => t.id === id);
     }
 
+    getClip(id: number) {
+        return this.clips.find((c) => c.id === id);
+    }
+
     addClip(
         sampleId: string,
-        sampleName: string,
+        name: string,
+        bufferId: string,
         trackId: number,
         time: MusicalTime,
         durationBeats: number,
@@ -168,11 +178,12 @@ class TimelineState {
     ): TimelineClip {
         const clip: TimelineClip = {
             id: this.nextClipId++,
+            name,
             sampleId,
-            sampleName,
+            bufferId,
             time,
             trackId,
-            volume,
+            params: { volume },
             duration: {
                 bar: Math.floor(durationBeats / 4),
                 beat: durationBeats % 4,
@@ -188,10 +199,12 @@ class TimelineState {
 
     removeClipsBySampleId(sampleId: string) {
         this.clips = this.clips.filter((c) => c.sampleId !== sampleId);
+        this.cleanupOrphanedBuffers();
     }
 
     removeClips(ids: number[]): void {
         this.clips = this.clips.filter((c) => !ids.includes(c.id));
+        this.cleanupOrphanedBuffers();
     }
 
     moveClip(id: number, newTime: MusicalTime, newTrackId: number): void {
@@ -199,11 +212,21 @@ class TimelineState {
     }
 
     setClipVolume(id: number, volume: number): void {
-        this.clips = this.clips.map((c) => (c.id === id ? { ...c, volume: Math.max(0, Math.min(1, volume)) } : c));
+        this.clips = this.clips.map((c) =>
+            c.id === id ? { ...c, params: { ...c.params, volume: Math.max(0, Math.min(1, volume)) } } : c,
+        );
     }
 
     resizeClip(id: number, opts: { duration?: MusicalTime; offset?: MusicalTime; time?: MusicalTime }): void {
         this.clips = this.clips.map((c) => (c.id === id ? { ...c, ...opts } : c));
+    }
+
+    updateClipBufferId(clipId: number, newBufferId: string): void {
+        this.clips = this.clips.map((c) => (c.id === clipId ? { ...c, bufferId: newBufferId } : c));
+    }
+
+    getClipBufferRefcount(bufferId: string): number {
+        return this.clips.filter((c) => c.bufferId === bufferId).length;
     }
 
     copyClips(ids: number[]): void {
@@ -216,16 +239,22 @@ class TimelineState {
         for (const clip of this.clipboard) {
             const newClip = this.addClip(
                 clip.sampleId,
-                clip.sampleName,
+                clip.name,
+                clip.bufferId,
                 clip.trackId,
                 clip.time,
                 clip.duration.bar * 4 + clip.duration.beat,
                 clip.offset.bar * 4 + clip.offset.beat,
-                clip.volume,
+                clip.params.volume,
             );
             pasted.push(newClip);
         }
         return pasted;
+    }
+
+    cleanupOrphanedBuffers() {
+        const clips = new Set(this.clips.map((c) => c.bufferId));
+        bufferStore.deleteOrphaned(clips);
     }
 }
 

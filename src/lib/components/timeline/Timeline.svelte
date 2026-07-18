@@ -9,12 +9,7 @@
     import RangeSlider from "$lib/components/ui/RangeSlider.svelte";
     import { onMount } from "svelte";
     import RotaryKnob from "../ui/RotaryKnob.svelte";
-
-    let {
-        onTimelineClick,
-    }: {
-        onTimelineClick?: (time: MusicalTime, trackId: number) => Promise<number | null>;
-    } = $props();
+    import { placeTimelineClip, placeTimelineClipDerivedFrom } from "$lib/actions/app.actions";
 
     let gridSvgEl = $state<SVGSVGElement>();
     let wrapperEl = $state<HTMLDivElement>();
@@ -210,7 +205,7 @@
         audio.playbackPosition = beats;
     }
 
-    function handleGridMouseDown(e: MouseEvent) {
+    async function handleGridMouseDown(e: MouseEvent) {
         if (e.button !== 0) return;
         if (audio.isLoadingSample) return;
 
@@ -234,15 +229,19 @@
         // ignore clicking on master track
         if (trackId === MASTER_TRACK_ID) return;
 
-        if (ui.selectedSampleId !== null) {
-            onTimelineClick?.(time, trackId).then((clipId) => {
-                if (clipId != null) {
-                    ui.selectClip(clipId, false);
-                    startDrag(clipId, x, y);
-                }
-            });
-        } else {
-            ui.deselectAllClips();
+        const selectedClip = ui.lastSelectedClipId && timeline.getClip(ui.lastSelectedClipId);
+        let clipId: number | null = null;
+
+        if (selectedClip) {
+            // Inherit the duration and offset from the last selected clip
+            clipId = await placeTimelineClipDerivedFrom(selectedClip.id, time, trackId);
+        } else if (ui.selectedSampleId) {
+            clipId = await placeTimelineClip(ui.selectedSampleId, time, trackId);
+        }
+
+        if (clipId != null) {
+            ui.selectClip(clipId, false);
+            startDrag(clipId, x, y);
         }
     }
 
@@ -260,31 +259,24 @@
         const createdClipIds: number[] = [];
 
         const sampleId = e.dataTransfer?.getData("application/x-sample-id");
+        const files = Array.from(e.dataTransfer?.files ?? []);
 
-        // Refactor this code out (move logic to some audio controller)
         if (sampleId) {
-            const buffer = await samples.getBuffer(sampleId);
-            if (!buffer) return;
+            const clipId = await placeTimelineClip(sampleId, time, trackId);
+            if (!clipId) return;
 
-            const sampleName = samples.getSampleName(sampleId) ?? "Sample";
-            const durationBeats = buffer.duration * (timeline.bpm / 60);
-            const clip = timeline.addClip(sampleId, sampleName, trackId, time, durationBeats, 0);
-            createdClipIds.push(clip.id);
+            createdClipIds.push(clipId);
         } else {
-            const files = Array.from(e.dataTransfer?.files ?? []);
             if (!files.length) return;
 
-            for (const file of files) {
-                const uploadedId = await samples.uploadFile(file);
-                if (!uploadedId) continue;
+            const uploadedSampleIds = await Promise.all(files.map((file) => samples.uploadFile(file)));
+            for (const sampleId of uploadedSampleIds) {
+                if (!sampleId) continue;
 
-                const buffer = await samples.getBuffer(uploadedId);
-                if (!buffer) continue;
+                const clipId = await placeTimelineClip(sampleId, time, trackId);
+                if (!clipId) return;
 
-                const sampleName = samples.getSampleName(uploadedId) ?? file.name;
-                const durationBeats = buffer.duration * (timeline.bpm / 60);
-                const clip = timeline.addClip(uploadedId, sampleName, trackId, time, durationBeats, 0);
-                createdClipIds.push(clip.id);
+                createdClipIds.push(clipId);
             }
         }
 
@@ -495,7 +487,7 @@
 
             <!-- Track pane: sticky left, scrolls vertically -->
             <div class="track-pane">
-                {#each timeline.tracks as track, i}
+                {#each timeline.tracks as track}
                     <div
                         class="track-row"
                         class:selected={ui.selectedTrackId === track.id}

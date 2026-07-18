@@ -4,6 +4,7 @@ import { AudioSinkNode } from "$lib/audio/nodes/sink.node";
 import { Scheduler } from "$lib/audio/scheduler";
 import { timeline, MASTER_TRACK_ID, type TimelineTrack } from "./timeline.svelte";
 import { samples } from "./samples.svelte";
+import { bufferStore } from "$lib/stores/buffer.svelte";
 
 type TrackAudioState = {
     sinkNode: AudioSinkNode;
@@ -44,7 +45,6 @@ class AudioEngine {
         if (this.audioContext) return this.audioContext;
 
         this.audioContext = new AudioContext();
-        samples.setAudioContext(this.audioContext);
 
         this.masterPreNode = this.audioContext.createGain();
         this.masterPostNode = {
@@ -276,12 +276,12 @@ class AudioEngine {
         this.isPlaying = true;
         this.playbackStartTime = this.audioContext!.currentTime - startOffsetSeconds;
 
-        await samples.prefetchClipBuffers(timeline.clips.map((c) => c.sampleId));
+        await samples.prefetchClipBuffers(timeline.clips.map((c) => c.bufferId));
 
         this.scheduler = new Scheduler(this.audioContext!, {
             getTotalDurationBeats: () => timeline.getTotalDurationBeats(),
             getTrackAudioState: (id) => this.getTrackAudioState(id),
-            getBufferSync: (id) => samples.getBufferSync(id),
+            getBufferSync: (id) => bufferStore.getBuffer(id),
             getBPM: () => timeline.bpm,
             getTimeSignature: () => timeline.timeSignature,
             getClips: () => timeline.clips,
@@ -438,7 +438,17 @@ class AudioEngine {
                     track = newTrack;
                 }
 
-                timeline.addClip(sampleId, name, track!.id, { bar: startBar, beat: startBeat }, durationBeats, 0);
+                const buffers = bufferStore.getBuffersBySampleId(sampleId);
+                const bufferId = buffers.length > 0 ? buffers[0].id : "";
+                timeline.addClip(
+                    sampleId,
+                    name,
+                    bufferId,
+                    track!.id,
+                    { bar: startBar, beat: startBeat },
+                    durationBeats,
+                    0,
+                );
             } catch (err) {
                 console.error("Failed to process recording:", err);
             }

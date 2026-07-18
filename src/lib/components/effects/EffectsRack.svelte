@@ -7,9 +7,7 @@
 
     let draggedIndex = $state<number | null>(null);
 
-    const selectedTrack = $derived(
-        ui.selectedTrackId !== null ? timeline.getTrackById(ui.selectedTrackId) : null,
-    );
+    const selectedTrack = $derived(ui.selectedTrackId !== null ? timeline.getTrackById(ui.selectedTrackId) : null);
 
     const trackPlugins = $derived(
         selectedTrack

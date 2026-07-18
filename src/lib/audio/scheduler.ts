@@ -8,7 +8,7 @@ type GetTrackAudioState = (trackId: number) => {
 
 export interface SchedulerConfig {
     getTrackAudioState: GetTrackAudioState;
-    getBufferSync: (sampleId: string) => AudioBuffer | null;
+    getBufferSync: (bufferId: string) => AudioBuffer | null;
     getBPM: () => number;
     getTimeSignature: () => { top: number };
     getClips: () => TimelineClip[];
@@ -168,7 +168,7 @@ export class Scheduler {
         const trackState = this.config.getTrackAudioState(clip.trackId);
         if (!trackState) return;
 
-        const buffer = this.config.getBufferSync(clip.sampleId);
+        const buffer = this.config.getBufferSync(clip.bufferId);
         if (!buffer) return;
 
         const source = this.audioContext.createBufferSource();
@@ -194,14 +194,16 @@ export class Scheduler {
         const fadeTime = Math.min(FADE_DURATION, adjustedDuration / 2);
         const endAt = startAt + adjustedDuration;
 
+        const volume = Math.max(0.001, clip.params.volume);
+
         if (offsetSeconds === 0) {
-            clipGain.gain.value = clip.volume;
+            clipGain.gain.value = volume;
         } else {
             clipGain.gain.setValueAtTime(0.001, startAt);
-            clipGain.gain.exponentialRampToValueAtTime(clip.volume, startAt + fadeTime);
+            clipGain.gain.exponentialRampToValueAtTime(volume, startAt + fadeTime);
         }
 
-        clipGain.gain.setValueAtTime(clip.volume, endAt - fadeTime);
+        clipGain.gain.setValueAtTime(volume, endAt - fadeTime);
         clipGain.gain.exponentialRampToValueAtTime(0.001, endAt);
 
         source.start(startAt, offsetSeconds, adjustedDuration);

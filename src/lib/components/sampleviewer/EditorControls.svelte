@@ -1,5 +1,13 @@
 <script lang="ts">
-    let { audioBuffer, audioContext }: { audioBuffer: AudioBuffer; audioContext: AudioContext | null } = $props();
+    let {
+        audioBuffer,
+        audioContext,
+        onReverse,
+    }: {
+        audioBuffer: AudioBuffer;
+        audioContext: AudioContext | null;
+        onReverse?: () => void;
+    } = $props();
 
     let isPlaying = $state(false);
     let isLooping = $state(false);
@@ -45,8 +53,7 @@
     }
 
     function reverse() {
-        // TODO: Implement reverse functionality
-        console.log("Reverse not implemented yet");
+        onReverse?.();
     }
 
     function trim() {

@@ -6,38 +6,43 @@ import {
     fetchAllAudioFileMetadata,
     deleteAudioFile,
 } from "$lib/audio/storage";
+import { bufferStore } from "$lib/stores/buffer.svelte";
 
-export type UserSample = {
+export enum SampleType {
+    Url = "url",
+    File = "file",
+}
+
+export type AudioSample = {
     id: string;
     name: string;
-    duration: number;
+    type: SampleType;
+    audioUrl?: string;
+    builtin: boolean;
 };
 
-/**
- * SampleStore handles audio storage (both in-memory and IndexedDB)
- * Independent from other states. Used by components directly.
- */
 class SampleStore {
     private audioContext: AudioContext | null = null;
     private db: IDBDatabase | null = null;
-    private buffers = new Map<string, AudioBuffer>();
-    private samplePaths = new Map<string, string>();
 
-    /**
-     * Stores general info of any recorded/uploaded audio files
-     * It is used by FileBrowser primarily.
-     */
-    userSamples = $state<UserSample[]>([]);
+    samples = $state<AudioSample[]>([]);
 
-    setAudioContext(context: AudioContext): void {
-        this.audioContext = context;
-    }
+    builtinSamples = $derived(this.samples.filter((s) => s.builtin));
+    userSamples = $derived(this.samples.filter((s) => !s.builtin));
 
     async init(): Promise<void> {
         try {
+            this.audioContext = new AudioContext();
             this.db = await openDatabase();
             const records = await fetchAllAudioFileMetadata(this.db);
-            this.userSamples = records.map((r) => ({ id: r.id, name: r.name, duration: r.duration }));
+            for (const r of records) {
+                this.samples.push({
+                    id: r.id,
+                    name: r.name,
+                    type: SampleType.File,
+                    builtin: false,
+                });
+            }
         } catch (err) {
             console.error("Failed to open IndexedDB:", err);
         }
@@ -45,41 +50,47 @@ class SampleStore {
 
     registerSamples(samples: { id: string; path: string }[]): void {
         for (const s of samples) {
-            this.samplePaths.set(s.id, s.path);
+            const dot = s.path.lastIndexOf(".");
+            const name = s.path.slice(s.path.lastIndexOf("/") + 1, dot === -1 ? s.path.length : dot);
+            this.samples.push({
+                id: s.id,
+                name,
+                type: SampleType.Url,
+                audioUrl: s.path,
+                builtin: true,
+            });
         }
     }
 
-    getSampleName(sampleId: string): string | null {
-        const path = this.samplePaths.get(sampleId);
-        if (path) {
-            const dot = path.lastIndexOf(".");
-            return path.slice(path.lastIndexOf("/") + 1, dot === -1 ? path.length : dot);
-        }
-        const userSample = this.userSamples.find((s) => s.id === sampleId);
-        return userSample?.name ?? null;
+    getSample(id: string): AudioSample | null {
+        return this.samples.find((s) => s.id === id) ?? null;
     }
 
-    async getBuffer(sampleId: string): Promise<AudioBuffer | null> {
-        const cached = this.buffers.get(sampleId);
-        if (cached) return cached;
+    async allocateOrFetchBuffers(sampleId: string): Promise<AudioBuffer | null> {
+        const sample = this.getSample(sampleId);
+        if (!sample) return null;
+
+        const existing = bufferStore.getBuffersBySampleId(sampleId);
+        if (existing.length > 0) return existing[0].binary;
 
         if (!this.audioContext) return null;
 
         try {
-            const path = this.samplePaths.get(sampleId);
-            if (path) {
-                const response = await fetch(resolve(path, {}));
+            if (sample.type === SampleType.Url && sample.audioUrl) {
+                const response = await fetch(resolve(sample.audioUrl, {}));
                 const arrayBuffer = await response.arrayBuffer();
                 const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-                this.buffers.set(sampleId, audioBuffer);
-                return audioBuffer;
-            }
 
-            if (this.db) {
+                bufferStore.createBuffer(sampleId, audioBuffer);
+
+                return audioBuffer;
+            } else if (sample.type === SampleType.File && this.db) {
                 const record = await fetchDatabaseRecordById(this.db, sampleId);
                 if (record) {
                     const audioBuffer = await this.audioContext.decodeAudioData(record.arrayBuffer);
-                    this.buffers.set(sampleId, audioBuffer);
+
+                    bufferStore.createBuffer(sampleId, audioBuffer);
+
                     return audioBuffer;
                 }
             }
@@ -91,37 +102,33 @@ class SampleStore {
         }
     }
 
-    getBufferSync(sampleId: string): AudioBuffer | null {
-        return this.buffers.get(sampleId) ?? null;
+    getBufferSync(bufferId: string): AudioBuffer | null {
+        return bufferStore.getBuffer(bufferId);
     }
 
-    hasBuffer(sampleId: string): boolean {
-        return this.buffers.has(sampleId);
+    hasBuffer(bufferId: string): boolean {
+        return bufferStore.hasBuffer(bufferId);
     }
 
-    cacheBuffer(sampleId: string, buffer: AudioBuffer): void {
-        this.buffers.set(sampleId, buffer);
-    }
-
-    clearBuffer(sampleId: string): void {
-        this.buffers.delete(sampleId);
-    }
-
-    async prefetchClipBuffers(clipSampleIds: string[]): Promise<void> {
-        const fetchPromises = clipSampleIds.map(async (sampleId) => {
-            if (!this.hasBuffer(sampleId)) {
-                await this.getBuffer(sampleId);
-            }
-        });
-        await Promise.allSettled(fetchPromises);
+    async prefetchClipBuffers(bufferIds: string[]): Promise<void> {
+        await Promise.allSettled(
+            bufferIds.map(async (bufferId) => {
+                if (!bufferStore.hasBuffer(bufferId)) {
+                    const record = bufferStore.getBufferRecord(bufferId);
+                    if (record) {
+                        await this.allocateOrFetchBuffers(record.sampleId);
+                    }
+                }
+            }),
+        );
     }
 
     async deleteUserSample(sampleId: string): Promise<void> {
+        bufferStore.deleteBuffersBySampleId(sampleId);
         if (this.db) {
             await deleteAudioFile(this.db, sampleId);
         }
-        this.userSamples = this.userSamples.filter((s) => s.id !== sampleId);
-        this.buffers.delete(sampleId);
+        this.samples = this.samples.filter((s) => s.id !== sampleId);
     }
 
     async uploadFile(file: File): Promise<string | null> {
@@ -137,8 +144,6 @@ class SampleStore {
             const sampleId = crypto.randomUUID();
             const name = file.name.replace(/\.[^.]+$/, "");
 
-            this.buffers.set(sampleId, audioBuffer);
-
             if (this.db) {
                 await createDatabaseRecord(this.db, {
                     id: sampleId,
@@ -150,7 +155,12 @@ class SampleStore {
                 });
             }
 
-            this.userSamples.push({ id: sampleId, name, duration: audioBuffer.duration });
+            this.samples.push({
+                id: sampleId,
+                name,
+                type: SampleType.File,
+                builtin: false,
+            });
             return sampleId;
         } catch (err) {
             console.error("Failed to upload file:", err);
@@ -164,7 +174,7 @@ class SampleStore {
         rawBuffer: ArrayBuffer,
         audioBuffer: AudioBuffer,
     ): Promise<void> {
-        this.buffers.set(sampleId, audioBuffer);
+        bufferStore.createBuffer(sampleId, audioBuffer);
 
         if (this.db) {
             await createDatabaseRecord(this.db, {
@@ -177,7 +187,36 @@ class SampleStore {
             });
         }
 
-        this.userSamples.push({ id: sampleId, name, duration: audioBuffer.duration });
+        this.samples.push({
+            id: sampleId,
+            name,
+            type: SampleType.File,
+            builtin: false,
+        });
+    }
+
+    // TODO: Does it belong here?
+    // We only need audioContext
+    createReversedBuffer(bufferId: string): string {
+        const record = bufferStore.getBufferRecord(bufferId);
+        if (!this.audioContext || !record) return bufferId;
+        const original = record.binary;
+
+        const newBuffer = this.audioContext.createBuffer(
+            original.numberOfChannels,
+            original.length,
+            original.sampleRate,
+        );
+
+        for (let ch = 0; ch < original.numberOfChannels; ch++) {
+            const sourceData = original.getChannelData(ch);
+            const destData = newBuffer.getChannelData(ch);
+            for (let i = 0; i < sourceData.length; i++) {
+                destData[i] = sourceData[sourceData.length - 1 - i];
+            }
+        }
+
+        return bufferStore.createBuffer(record.sampleId, newBuffer);
     }
 }
 

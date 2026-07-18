@@ -22,6 +22,7 @@
 
     function handleClick(_: MouseEvent, id: string) {
         ui.selectedSampleId = id;
+        ui.lastSelectedClipId = null;
         onSampleClick?.(id);
     }
 
@@ -71,7 +72,7 @@
         if (!audio.context) return;
 
         try {
-            const audioBuffer = await sampleStore.getBuffer(sample.id);
+            const audioBuffer = await sampleStore.allocateOrFetchBuffers(sample.id);
             if (!audioBuffer) return;
 
             const source = audio.context.createBufferSource();

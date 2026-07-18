@@ -1,6 +1,6 @@
 <script lang="ts">
     import { timeline, type TimelineClip as TimelineClipType } from "$lib/stores/timeline.svelte";
-    import { samples } from "$lib/stores/samples.svelte";
+    import { bufferStore } from "$lib/stores/buffer.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import { generateWaveformPath } from "$lib/utils/waveform";
 
@@ -17,10 +17,10 @@
     const x = $derived(timeline.musicalTimeToX(clip.time));
     const y = $derived(clip.trackId * timeline.trackHeight);
     const clipWidth = $derived(clip.duration.bar * timeline.barWidth + clip.duration.beat * timeline.beatWidth);
-    const clipSampleId = $derived(clip.sampleId);
+    const clipBufferId = $derived(clip.bufferId);
 
     const clipBufferDuration = $derived.by(() => {
-        const buffer = samples.getBufferSync(clipSampleId);
+        const buffer = bufferStore.getBuffer(clipBufferId);
         return buffer ? buffer.duration : 1;
     });
     const offsetSeconds = $derived(timeline.musicalTimeToSeconds(clip.offset));
@@ -28,9 +28,12 @@
     const offsetFraction = $derived(offsetSeconds / clipBufferDuration);
     const durationFraction = $derived(durationSeconds / clipBufferDuration);
 
+    // BUG: Waveform is becoming obsolete after second reverse.
+    // It's because we update the buffer in-place without re-allocating.
+    // Possible solutions are to use buffer versioning or to allocate a new buffer when changing the audio data (e.g. reverse clip, pitching)
     const waveformPath = $derived.by(() => {
         const waveHeight = timeline.trackHeight - 24;
-        const buffer = samples.getBufferSync(clipSampleId);
+        const buffer = bufferStore.getBuffer(clipBufferId);
         if (buffer) {
             return generateWaveformPath(
                 buffer,
@@ -172,7 +175,7 @@
         e.preventDefault();
         isAdjustingVolume = true;
         volumeStartMouseY = e.clientY;
-        volumeStartValue = clip.volume;
+        volumeStartValue = clip.params.volume;
         document.addEventListener("mousemove", handleVolumeMove);
         document.addEventListener("mouseup", handleVolumeEnd);
     }
@@ -213,7 +216,7 @@
 
     <!-- Clip name -->
     <foreignObject x={x + 4} y={y + 1} width={Math.max(0, clipWidth - 8)} height={18} pointer-events="none">
-        <div class="clip-name">{clip.sampleName}</div>
+        <div class="clip-name">{clip.name}</div>
     </foreignObject>
 
     <!-- Waveform -->
@@ -227,18 +230,18 @@
     <g class="volume-indicator">
         <rect
             {x}
-            y={y + 20 + waveHeight * (1 - clip.volume)}
+            y={y + 20 + waveHeight * (1 - clip.params.volume)}
             width={clipWidth}
-            height={waveHeight * clip.volume}
+            height={waveHeight * clip.params.volume}
             fill="var(--accent-primary)"
             opacity="0.15"
             pointer-events="none"
         />
         <line
             x1={x}
-            y1={y + 20 + waveHeight * (1 - clip.volume)}
+            y1={y + 20 + waveHeight * (1 - clip.params.volume)}
             x2={x + clipWidth}
-            y2={y + 20 + waveHeight * (1 - clip.volume)}
+            y2={y + 20 + waveHeight * (1 - clip.params.volume)}
             stroke="var(--accent-primary)"
             stroke-width="2"
             style="cursor: ns-resize;"
@@ -247,7 +250,7 @@
         {#if clipWidth > 25}
             <text
                 x={x + clipWidth - 4}
-                y={y + 20 + waveHeight * (1 - clip.volume) - (clip.volume < 0.75 ? 4 : -10)}
+                y={y + 20 + waveHeight * (1 - clip.params.volume) - (clip.params.volume < 0.75 ? 4 : -10)}
                 fill="var(--text-primary)"
                 font-size="10"
                 font-weight="600"
@@ -255,7 +258,7 @@
                 text-anchor="end"
                 pointer-events="none"
             >
-                {Math.round(clip.volume * 100)}%
+                {Math.round(clip.params.volume * 100)}%
             </text>
         {/if}
     </g>
