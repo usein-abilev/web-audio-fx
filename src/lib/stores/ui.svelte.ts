@@ -5,7 +5,7 @@ class UIState {
     selectedClipIds = $state(new SvelteSet<number>());
     lastSelectedClipId = $state<number | null>(null);
     selectedTrackId = $state<number | null>(null);
-    bufferViewerOpen = $state(false);
+    bufferViewerOpen = $state(true);
     effectsRackOpen = $state(false);
     darkMode = $state(false);
 
