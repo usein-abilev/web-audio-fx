@@ -37,7 +37,7 @@ npm run dev
 - Impulse Responses & Anechoic Samples - [OpenAir Library](https://www.openairlib.net/) (University of York), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - Signature Sounds - [signaturesounds.org](https://signaturesounds.org), licensed under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 
-See [CREDITS](CREDITS) for full attribution details.
+See [CREDITS](CREDITS.md) for full attribution details.
 
 ## Contributions
 Contributions, ideas and bug reports are welcome! Feel free to open issues or pull requests.
