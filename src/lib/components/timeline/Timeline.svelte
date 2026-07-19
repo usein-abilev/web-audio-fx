@@ -9,7 +9,7 @@
     import RangeSlider from "$lib/components/ui/RangeSlider.svelte";
     import { onMount } from "svelte";
     import RotaryKnob from "../ui/RotaryKnob.svelte";
-    import { placeTimelineClip, placeTimelineClipDerivedFrom } from "$lib/actions/app.actions";
+    import { placeTimelineClip, placeTimelineClipDerivedFrom, reverseTimelineClip } from "$lib/actions/app.actions";
 
     let gridSvgEl = $state<SVGSVGElement>();
     let wrapperEl = $state<HTMLDivElement>();
@@ -377,7 +377,7 @@
         startDrag(clipId, mouseSvgX, mouseSvgY);
     }
 
-    function handleKeydown(e: KeyboardEvent) {
+    async function handleKeydown(e: KeyboardEvent) {
         if (e.key === "s" || e.key === "S") {
             e.preventDefault();
             const splitBeat = audio.playbackPosition;
@@ -388,6 +388,13 @@
             }
             if (newClipIds.length > 0) {
                 ui.setSelectedClips(newClipIds);
+            }
+        }
+
+        if (e.key === "r" || e.key === "R") {
+            e.preventDefault();
+            for (const clipId of [...ui.selectedClipIds]) {
+                await reverseTimelineClip(clipId);
             }
         }
 
