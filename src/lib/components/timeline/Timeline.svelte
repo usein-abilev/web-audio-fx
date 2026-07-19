@@ -48,6 +48,60 @@
                     audio.resume();
                 }
             }
+
+            const isArrow = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code);
+            if (ui.selectedClipIds.size > 0 && isArrow) {
+                e.preventDefault();
+
+                const stepSize = shiftHeld ? 4 : timeline.gridStepValue;
+                const trackCount = timeline.tracks.length;
+                const dir = e.code === "ArrowLeft" || e.code === "ArrowUp" ? -1 : 1;
+
+                if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+                    const selected = [...ui.selectedClipIds]
+                        .map((id) => ({ id, clip: timeline.getClip(id) }))
+                        .filter((e) => e.clip !== undefined) as { id: number; clip: (typeof timeline.clips)[number] }[];
+
+                    let clampOffset = 0;
+                    if (dir === -1) {
+                        let minNewBeats = Infinity;
+                        for (const { clip } of selected) {
+                            const currentBeats = clip.time.bar * 4 + clip.time.beat;
+                            const newBeats = currentBeats - stepSize;
+                            if (newBeats < minNewBeats) minNewBeats = newBeats;
+                        }
+                        if (minNewBeats < 0) clampOffset = -minNewBeats;
+                    }
+
+                    for (const { id, clip } of selected) {
+                        const currentBeats = clip.time.bar * 4 + clip.time.beat;
+                        const newBeats = currentBeats + dir * stepSize + clampOffset;
+                        const newBar = Math.floor(newBeats / 4);
+                        const newBeat = newBeats % 4;
+                        timeline.moveClip(id, { bar: newBar, beat: newBeat }, clip.trackId);
+                    }
+                } else {
+                    const selected = [...ui.selectedClipIds]
+                        .map((id) => ({ id, clip: timeline.getClip(id) }))
+                        .filter((e) => e.clip !== undefined) as { id: number; clip: (typeof timeline.clips)[number] }[];
+
+                    let minProposed = Infinity;
+                    let maxProposed = -Infinity;
+                    for (const { clip } of selected) {
+                        const proposed = clip.trackId + dir;
+                        if (proposed < minProposed) minProposed = proposed;
+                        if (proposed > maxProposed) maxProposed = proposed;
+                    }
+
+                    let effectiveDelta = dir;
+                    if (minProposed < 0) effectiveDelta -= minProposed;
+                    else if (maxProposed > trackCount - 1) effectiveDelta -= maxProposed - (trackCount - 1);
+
+                    for (const { id, clip } of selected) {
+                        timeline.moveClip(id, { ...clip.time }, clip.trackId + effectiveDelta);
+                    }
+                }
+            }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
             if (e.key === "Shift") shiftHeld = false;
