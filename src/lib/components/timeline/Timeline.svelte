@@ -324,6 +324,19 @@
     }
 
     function handleKeydown(e: KeyboardEvent) {
+        if (e.key === "s" || e.key === "S") {
+            e.preventDefault();
+            const splitBeat = audio.playbackPosition;
+            const newClipIds: number[] = [];
+            for (const clipId of [...ui.selectedClipIds]) {
+                const newClip = timeline.splitClip(clipId, splitBeat);
+                if (newClip) newClipIds.push(newClip.id);
+            }
+            if (newClipIds.length > 0) {
+                ui.setSelectedClips(newClipIds);
+            }
+        }
+
         if (e.key === "Delete" || e.key === "Backspace") {
             if (ui.selectedClipIds.size > 0) {
                 timeline.removeClips([...ui.selectedClipIds]);

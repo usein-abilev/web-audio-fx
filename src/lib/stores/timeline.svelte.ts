@@ -221,6 +221,37 @@ class TimelineState {
         this.clips = this.clips.map((c) => (c.id === id ? { ...c, ...opts } : c));
     }
 
+    splitClip(clipId: number, splitBeat: number): TimelineClip | null {
+        const clip = this.getClip(clipId);
+        if (!clip) return null;
+
+        const clipStartBeats = clip.time.bar * 4 + clip.time.beat;
+        const clipDurationBeats = clip.duration.bar * 4 + clip.duration.beat;
+        const clipEndBeats = clipStartBeats + clipDurationBeats;
+
+        if (splitBeat <= clipStartBeats || splitBeat >= clipEndBeats) return null;
+
+        const leftDuration = splitBeat - clipStartBeats;
+        this.resizeClip(clipId, {
+            duration: { bar: Math.floor(leftDuration / 4), beat: leftDuration % 4 },
+        });
+
+        const rightDuration = clipEndBeats - splitBeat;
+        const rightOffset = (clip.offset.bar * 4 + clip.offset.beat) + leftDuration;
+        const rightClip = this.addClip(
+            clip.sampleId,
+            clip.name,
+            clip.bufferId,
+            clip.trackId,
+            { bar: Math.floor(splitBeat / 4), beat: splitBeat % 4 },
+            rightDuration,
+            rightOffset,
+            clip.params.volume,
+        );
+
+        return rightClip;
+    }
+
     updateClipBufferId(clipId: number, newBufferId: string): void {
         this.clips = this.clips.map((c) => (c.id === clipId ? { ...c, bufferId: newBufferId } : c));
     }
