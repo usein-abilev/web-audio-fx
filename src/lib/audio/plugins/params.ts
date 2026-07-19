@@ -9,6 +9,7 @@ export interface AudioNodeParam {
     step?: number;
     defaultValue?: number | boolean | string;
     options?: { value: string; label: string }[];
+    hideLabel?: boolean;
     getValue: () => number | boolean | string;
     setValue: (value: number | boolean | string) => void;
 }

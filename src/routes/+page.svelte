@@ -6,6 +6,7 @@
     import EffectsRack from "$lib/components/effects/EffectsRack.svelte";
     import { audio } from "$lib/stores/audio.svelte";
     import { samples } from "$lib/stores/samples.svelte";
+    import { setImpulseResponses } from "$lib/audio/plugins/reverb";
     import { onMount } from "svelte";
 
     let { data } = $props();
@@ -14,6 +15,7 @@
         console.log("App onMount: initializing audio", data.samples);
         await audio.init();
         samples.registerSamples(data.samples);
+        setImpulseResponses(data.impulseResponses);
     });
 </script>
 

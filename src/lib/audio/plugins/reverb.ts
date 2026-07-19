@@ -1,20 +1,18 @@
-import { fetchAudioAsArrayBuffer, withBasePath } from "../utils";
+import { resolve } from "$app/paths";
+import { fetchAudioAsArrayBuffer } from "../utils";
 import { AudioPlugin } from "./plugin";
 
-const IMPULSE_RESPONSES = [
-    {
-        title: "Church",
-        path: "/impulse_responses/Church Schellingwoude/Church Schellingwoude.wav",
-    },
-    {
-        title: "Factory Hall",
-        path: "/impulse_responses/Factory Hall/Factory Hall/Factory Hall.wav",
-    },
-    {
-        title: "Claustrofobia v1.1",
-        path: "/impulse_responses/Claustrofobia v1.1/Dustbin 3 mono/Dustbin 3.C.wav",
-    },
-].map((o) => ({ ...o, path: withBasePath(o.path) }));
+type ImpulseResponse = {
+    id: string;
+    name: string;
+    path: string;
+};
+
+let impulseResponses: ImpulseResponse[] = [];
+
+export function setImpulseResponses(data: ImpulseResponse[]) {
+    impulseResponses = data;
+}
 
 export class ReverbPlugin extends AudioPlugin {
     public get name() {
@@ -69,14 +67,17 @@ export class ReverbPlugin extends AudioPlugin {
                 id: "ir",
                 name: "Impulse Response",
                 type: "select",
-                options: IMPULSE_RESPONSES.map((ir) => ({ value: ir.path, label: ir.title })),
-                defaultValue: IMPULSE_RESPONSES[0].path,
+                hideLabel: true,
+                options: impulseResponses.map((ir) => ({ value: ir.path, label: ir.name })),
+                defaultValue: impulseResponses[0]?.path ?? "",
                 getValue: () => this.selectedIRPath,
                 setValue: (value) => {
                     const path = value as string;
                     if (this.selectedIRPath === path) return;
                     this.selectedIRPath = path;
-                    fetchAudioAsArrayBuffer(path)
+                    // TODO: no caching at all
+                    // Consider to use `allocateOrFetchBuffers` function in samples
+                    fetchAudioAsArrayBuffer(resolve(path, {}))
                         .then((buffer) => this.audioContext.decodeAudioData(buffer))
                         .then((buffer) => this.setIRBuffer(buffer))
                         .catch((error) => console.error("Error fetching IR audio buffer:", error));

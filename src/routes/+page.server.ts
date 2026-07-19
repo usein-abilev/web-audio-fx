@@ -43,6 +43,11 @@ function scanAudioFiles(path: string, rootDir: string): Sample[] {
 
 export const load = async () => {
     const staticDir = join(process.cwd(), "static");
-    const samples = scanAudioFiles(staticDir, staticDir);
-    return { samples };
+    const sampleDir = join(staticDir, "samples");
+    const impulseResponseDir = join(staticDir, "impulse-responses");
+
+    const impulseResponses = scanAudioFiles(impulseResponseDir, staticDir);
+    const samples = scanAudioFiles(sampleDir, staticDir);
+
+    return { samples, impulseResponses };
 };

@@ -18,14 +18,6 @@ export const normalizeExpCurve = (value: number, min: number, max: number) => {
     return min * (max / min) ** value;
 };
 
-// TODO: consider to use $app/paths `resolve` method instead
-export const withBasePath = (path: string) => {
-    const { BASE_URL } = import.meta.env;
-    const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-    const pathname = path.startsWith("/") ? path.substring(1) : path;
-    return base + pathname;
-};
-
 export const fetchAudioAsArrayBuffer = async (audioUrl: string): Promise<ArrayBuffer> => {
     try {
         const response = await fetch(audioUrl);

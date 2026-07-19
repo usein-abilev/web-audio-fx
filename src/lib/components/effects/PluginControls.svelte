@@ -10,10 +10,12 @@
     {#each displayParams as param (param.id)}
         {#if param.type === "select" && param.options}
             <div class="control-row">
-                <label for="param-{param.id}">{param.name}</label>
+                {#if !param.hideLabel}
+                    <label for="param-{param.id}">{param.name}</label>
+                {/if}
                 <select
                     id="param-{param.id}"
-                    value={param.defaultValue ?? ""}
+                    value={param.getValue()}
                     onchange={(e) => param.setValue((e.target as HTMLSelectElement).value)}
                 >
                     {#each param.options as option (option.value)}
