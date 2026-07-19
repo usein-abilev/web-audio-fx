@@ -1,11 +1,12 @@
-import { defineConfig } from "vite"
+import adapter from "@sveltejs/adapter-static";
+import { sveltekit } from "@sveltejs/kit/vite";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-    base: "/web-audio-fx/",
-    css: {
-        preprocessorOptions: {
-            scss: {
-            },
-        },
-    },
+    plugins: [
+        sveltekit({
+            adapter: adapter({ strict: false }),
+            paths: { base: "/web-audio-fx" },
+        }),
+    ],
 });
