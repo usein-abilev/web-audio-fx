@@ -50,10 +50,12 @@
             }
 
             const isArrow = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code);
-            if (ui.selectedClipIds.size > 0 && isArrow) {
+
+            // Move selected clips by pressing shift + arrow keys
+            if (ui.selectedClipIds.size > 0 && isArrow && shiftHeld) {
                 e.preventDefault();
 
-                const stepSize = shiftHeld ? 4 : timeline.gridStepValue;
+                const stepSize = timeline.gridStepValue;
                 const trackCount = timeline.tracks.length;
                 const dir = e.code === "ArrowLeft" || e.code === "ArrowUp" ? -1 : 1;
 
@@ -101,6 +103,12 @@
                         timeline.moveClip(id, { ...clip.time }, clip.trackId + effectiveDelta);
                     }
                 }
+            }
+
+            if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && !shiftHeld) {
+                e.preventDefault();
+                const dir = e.code === "ArrowLeft" ? -1 : 1;
+                audio.playbackPosition = Math.max(0, audio.playbackPosition + dir * timeline.gridStepValue);
             }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
@@ -378,6 +386,11 @@
     }
 
     async function handleKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            ui.deselectAllClips();
+        }
+
         if (e.key === "s" || e.key === "S") {
             e.preventDefault();
             const splitBeat = audio.playbackPosition;
