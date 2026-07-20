@@ -265,16 +265,26 @@ class TimelineState {
         this.clipboard = this.clips.filter((c) => ids.includes(c.id));
     }
 
-    pasteClips(): TimelineClip[] {
+    pasteClips(playbackPositionBeats: number): TimelineClip[] {
         if (this.clipboard.length === 0) return [];
+
+        let earliestStartBeats = Infinity;
+        for (const clip of this.clipboard) {
+            const start = this.musicalTimeToBeats(clip.time);
+            if (start < earliestStartBeats) earliestStartBeats = start;
+        }
+
+        const offsetBeats = Math.max(0, playbackPositionBeats - earliestStartBeats);
+
         const pasted: TimelineClip[] = [];
         for (const clip of this.clipboard) {
+            const originalStart = this.musicalTimeToBeats(clip.time);
             const newClip = this.addClip(
                 clip.sampleId,
                 clip.name,
                 clip.bufferId,
                 clip.trackId,
-                clip.time,
+                this.beatsToMusical(originalStart + offsetBeats),
                 this.musicalTimeToBeats(clip.duration),
                 this.musicalTimeToBeats(clip.offset),
                 clip.params.volume,

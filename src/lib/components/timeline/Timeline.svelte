@@ -520,7 +520,7 @@
         }
 
         if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-            const pasted = timeline.pasteClips();
+            const pasted = timeline.pasteClips(audio.playbackPosition);
             if (pasted.length > 0) {
                 ui.deselectAllClips();
                 for (const clip of pasted) {
