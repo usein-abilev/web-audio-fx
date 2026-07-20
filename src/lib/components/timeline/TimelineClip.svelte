@@ -7,9 +7,13 @@
     let {
         clip,
         onDragStart,
+        onResizeStart,
+        onVolumeStart,
     }: {
         clip: TimelineClipType;
         onDragStart?: (clipId: number, mouseX: number, mouseY: number) => void;
+        onResizeStart?: (clipId: number, edge: "left" | "right", e: MouseEvent) => void;
+        onVolumeStart?: (clipId: number, e: MouseEvent) => void;
     } = $props();
 
     let selected = $derived(ui.selectedClipIds.has(clip.id));
@@ -28,9 +32,6 @@
     const offsetFraction = $derived(offsetSeconds / clipBufferDuration);
     const durationFraction = $derived(durationSeconds / clipBufferDuration);
 
-    // BUG: Waveform is becoming obsolete after second reverse.
-    // It's because we update the buffer in-place without re-allocating.
-    // Possible solutions are to use buffer versioning or to allocate a new buffer when changing the audio data (e.g. reverse clip, pitching)
     const waveformPath = $derived.by(() => {
         const waveHeight = timeline.trackHeight - 24;
         const buffer = bufferStore.getBuffer(clipBufferId);
@@ -44,24 +45,6 @@
             );
         }
     });
-
-    let isResizing = $state(false);
-    let resizeEdge = $state<"left" | "right">("right");
-    let resizeStartMouseX = $state(0);
-    let resizeStartMouseY = $state(0);
-    let resizeStartClipTime = $state({ bar: 0, beat: 0 });
-    let resizeStartClipDuration = $state({ bar: 0, beat: 0 });
-    let resizeStartClipOffset = $state({ bar: 0, beat: 0 });
-    let shiftHeld = $state(false);
-
-    let isAdjustingVolume = $state(false);
-    let volumeStartMouseY = $state(0);
-    let volumeStartValue = $state(0);
-
-    function beatsToMusical(b: number) {
-        const clamped = Math.max(0, b);
-        return { bar: Math.floor(clamped / 4), beat: clamped % 4 };
-    }
 
     function handleContextMenu(e: MouseEvent) {
         e.preventDefault();
@@ -92,79 +75,11 @@
         onDragStart?.(clip.id, mouseX, mouseY);
     }
 
-    function screenToSvg(clientX: number, clientY: number) {
-        const svg = document.querySelector("svg.grid-svg") as SVGSVGElement | null;
-        if (!svg) return { x: 0, y: 0 };
-        const rect = svg.getBoundingClientRect();
-        return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-
     function handleResizeStart(e: MouseEvent, edge: "left" | "right") {
         if (e.button !== 0) return;
         e.stopPropagation();
         e.preventDefault();
-
-        isResizing = true;
-        resizeEdge = edge;
-        resizeStartMouseX = e.clientX;
-        resizeStartMouseY = e.clientY;
-        resizeStartClipTime = { ...clip.time };
-        resizeStartClipDuration = { ...clip.duration };
-        resizeStartClipOffset = { ...clip.offset };
-
-        document.addEventListener("mousemove", handleResizeMove);
-        document.addEventListener("mouseup", handleResizeEnd);
-    }
-
-    function handleResizeMove(e: MouseEvent) {
-        if (!isResizing) return;
-
-        const { x: currentX } = screenToSvg(e.clientX, e.clientY);
-        const { x: startSvgX } = screenToSvg(resizeStartMouseX, resizeStartMouseY);
-        const svgDeltaX = currentX - startSvgX;
-
-        const { gridStepValue } = timeline;
-
-        const deltaBeatsRaw = svgDeltaX / timeline.beatWidth;
-        const gridStepBeats = timeline.stepWidth / timeline.beatWidth;
-
-        const bufferDurationBeats = clipBufferDuration * (timeline.bpm / 60);
-
-        const oldDurationBeats = resizeStartClipDuration.bar * 4 + resizeStartClipDuration.beat;
-        const oldOffsetBeats = resizeStartClipOffset.bar * 4 + resizeStartClipOffset.beat;
-
-        if (resizeEdge === "right") {
-            const absoluteEdgeBeats = oldDurationBeats + deltaBeatsRaw;
-            const snappedEdgeBeats = shiftHeld
-                ? absoluteEdgeBeats
-                : Math.round(absoluteEdgeBeats / gridStepBeats) * gridStepBeats;
-            const newDurationBeats = Math.max(
-                shiftHeld ? 0.01 : gridStepValue,
-                Math.min(snappedEdgeBeats, bufferDurationBeats - oldOffsetBeats),
-            );
-            timeline.resizeClip(clip.id, { duration: beatsToMusical(newDurationBeats) });
-        } else {
-            const rawOffsetBeats = oldOffsetBeats + deltaBeatsRaw;
-            const snappedOffsetBeats = shiftHeld
-                ? rawOffsetBeats
-                : Math.round(rawOffsetBeats / gridStepBeats) * gridStepBeats;
-            const newOffsetBeats = Math.max(0, Math.min(snappedOffsetBeats, bufferDurationBeats - gridStepValue));
-            const offsetDelta = newOffsetBeats - oldOffsetBeats;
-            const newDurationBeats = Math.max(gridStepValue, oldDurationBeats - offsetDelta);
-            const oldTimeBeats = resizeStartClipTime.bar * 4 + resizeStartClipTime.beat;
-            const newTimeBeats = Math.max(0, oldTimeBeats + offsetDelta);
-            timeline.resizeClip(clip.id, {
-                offset: beatsToMusical(newOffsetBeats),
-                duration: beatsToMusical(newDurationBeats),
-                time: beatsToMusical(newTimeBeats),
-            });
-        }
-    }
-
-    function handleResizeEnd() {
-        isResizing = false;
-        document.removeEventListener("mousemove", handleResizeMove);
-        document.removeEventListener("mouseup", handleResizeEnd);
+        onResizeStart?.(clip.id, edge, e);
     }
 
     const waveHeight = $derived(timeline.trackHeight - 24);
@@ -173,28 +88,9 @@
         if (e.button !== 0) return;
         e.stopPropagation();
         e.preventDefault();
-        isAdjustingVolume = true;
-        volumeStartMouseY = e.clientY;
-        volumeStartValue = clip.params.volume;
-        document.addEventListener("mousemove", handleVolumeMove);
-        document.addEventListener("mouseup", handleVolumeEnd);
-    }
-
-    function handleVolumeMove(e: MouseEvent) {
-        if (!isAdjustingVolume) return;
-        const deltaY = volumeStartMouseY - e.clientY;
-        const delta = deltaY / waveHeight;
-        timeline.setClipVolume(clip.id, volumeStartValue + delta);
-    }
-
-    function handleVolumeEnd() {
-        isAdjustingVolume = false;
-        document.removeEventListener("mousemove", handleVolumeMove);
-        document.removeEventListener("mouseup", handleVolumeEnd);
+        onVolumeStart?.(clip.id, e);
     }
 </script>
-
-<svelte:window onkeyup={() => (shiftHeld = false)} onkeydown={(e) => (shiftHeld = e.shiftKey)} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

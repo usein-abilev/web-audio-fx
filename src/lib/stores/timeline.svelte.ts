@@ -138,16 +138,23 @@ class TimelineState {
         return this.tracks[index]?.id ?? 0;
     }
 
+    musicalTimeToBeats(time: MusicalTime): number {
+        return time.bar * 4 + time.beat;
+    }
+
+    beatsToMusical(beats: number): MusicalTime {
+        const clamped = Math.max(0, beats);
+        return { bar: Math.floor(clamped / 4), beat: clamped % 4 };
+    }
+
     musicalTimeToSeconds(time: MusicalTime): number {
-        return ((time.bar * 4 + time.beat) * 60) / this.bpm;
+        return (this.musicalTimeToBeats(time) * 60) / this.bpm;
     }
 
     getTotalDurationBeats(): number {
         let latestEndBeats = 0;
         for (const clip of this.clips) {
-            const startBeats = clip.time.bar * 4 + clip.time.beat;
-            const durationBeats = clip.duration.bar * 4 + clip.duration.beat;
-            const endBeats = startBeats + durationBeats;
+            const endBeats = this.musicalTimeToBeats(clip.time) + this.musicalTimeToBeats(clip.duration);
             if (endBeats > latestEndBeats) latestEndBeats = endBeats;
         }
         return latestEndBeats > 0 ? Math.ceil(latestEndBeats / 4) * 4 : 4;
@@ -184,14 +191,8 @@ class TimelineState {
             time,
             trackId,
             params: { volume },
-            duration: {
-                bar: Math.floor(durationBeats / 4),
-                beat: durationBeats % 4,
-            },
-            offset: {
-                bar: Math.floor(offsetBeats / 4),
-                beat: offsetBeats % 4,
-            },
+            duration: this.beatsToMusical(durationBeats),
+            offset: this.beatsToMusical(offsetBeats),
         };
         this.clips.push(clip);
         return clip;
@@ -225,25 +226,25 @@ class TimelineState {
         const clip = this.getClip(clipId);
         if (!clip) return null;
 
-        const clipStartBeats = clip.time.bar * 4 + clip.time.beat;
-        const clipDurationBeats = clip.duration.bar * 4 + clip.duration.beat;
+        const clipStartBeats = this.musicalTimeToBeats(clip.time);
+        const clipDurationBeats = this.musicalTimeToBeats(clip.duration);
         const clipEndBeats = clipStartBeats + clipDurationBeats;
 
         if (splitBeat <= clipStartBeats || splitBeat >= clipEndBeats) return null;
 
         const leftDuration = splitBeat - clipStartBeats;
         this.resizeClip(clipId, {
-            duration: { bar: Math.floor(leftDuration / 4), beat: leftDuration % 4 },
+            duration: this.beatsToMusical(leftDuration),
         });
 
         const rightDuration = clipEndBeats - splitBeat;
-        const rightOffset = (clip.offset.bar * 4 + clip.offset.beat) + leftDuration;
+        const rightOffset = this.musicalTimeToBeats(clip.offset) + leftDuration;
         const rightClip = this.addClip(
             clip.sampleId,
             clip.name,
             clip.bufferId,
             clip.trackId,
-            { bar: Math.floor(splitBeat / 4), beat: splitBeat % 4 },
+            this.beatsToMusical(splitBeat),
             rightDuration,
             rightOffset,
             clip.params.volume,
@@ -274,8 +275,8 @@ class TimelineState {
                 clip.bufferId,
                 clip.trackId,
                 clip.time,
-                clip.duration.bar * 4 + clip.duration.beat,
-                clip.offset.bar * 4 + clip.offset.beat,
+                this.musicalTimeToBeats(clip.duration),
+                this.musicalTimeToBeats(clip.offset),
                 clip.params.volume,
             );
             pasted.push(newClip);
