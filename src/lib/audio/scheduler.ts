@@ -1,13 +1,9 @@
 import { playMetronome } from "./metronome";
 import type { TimelineClip } from "$lib/stores/timeline.svelte";
-
-type GetTrackAudioState = (trackId: number) => {
-    sinkNode: { receiveInput(node: AudioNode): void };
-    pluginInstances: unknown[];
-} | null;
+import type { TrackAudioState } from "$lib/stores/types";
 
 export interface SchedulerConfig {
-    getTrackAudioState: GetTrackAudioState;
+    getTrackAudioState: (trackId: number) => TrackAudioState | null;
     getBufferSync: (bufferId: string) => AudioBuffer | null;
     getBPM: () => number;
     getTimeSignature: () => { top: number };
@@ -176,7 +172,7 @@ export class Scheduler {
 
         const clipGain = this.audioContext.createGain();
         source.connect(clipGain);
-        trackState.sinkNode.receiveInput(clipGain);
+        clipGain.connect(trackState.inputNode);
 
         const clipDuration = ((clip.duration.bar * 4 + clip.duration.beat) * 60) / this.config.getBPM();
         let offsetSeconds = ((clip.offset.bar * 4 + clip.offset.beat) * 60) / this.config.getBPM();

@@ -1,15 +1,11 @@
 import PLUGINS from "$lib/audio/plugins/index";
-import type { AudioPlugin } from "$lib/audio/plugins/plugin";
+import { AudioPlugin } from "$lib/audio/plugins/plugin";
 import { AudioSinkNode } from "$lib/audio/nodes/sink.node";
 import { Scheduler } from "$lib/audio/scheduler";
 import { timeline, MASTER_TRACK_ID, type TimelineTrack } from "./timeline.svelte";
 import { samples } from "./samples.svelte";
 import { bufferStore } from "$lib/stores/buffer.svelte";
-
-type TrackAudioState = {
-    sinkNode: AudioSinkNode;
-    pluginInstances: AudioPlugin[];
-};
+import type { TrackAudioState } from "./types";
 
 class AudioEngine {
     private audioContext: AudioContext | null = null;
@@ -48,6 +44,7 @@ class AudioEngine {
 
         this.masterPreNode = this.audioContext.createGain();
         this.masterPostNode = {
+            inputNode: this.audioContext.createGain(),
             sinkNode: new AudioSinkNode(this.audioContext, "Master"),
             pluginInstances: [],
         };
@@ -80,12 +77,14 @@ class AudioEngine {
     createTrackAudio(track: TimelineTrack): void {
         if (!this.audioContext || !this.masterPreNode) return;
 
+        const inputNode = this.audioContext.createGain();
         const sinkNode = new AudioSinkNode(this.audioContext, track.name);
         sinkNode.setGain(track.gain);
         sinkNode.setPan(track.pan);
         sinkNode.connect(this.masterPreNode);
 
         this.trackAudio.set(track.id, {
+            inputNode,
             sinkNode,
             pluginInstances: [],
         });
@@ -247,14 +246,25 @@ class AudioEngine {
             return bypassParam ? !bypassParam.getValue() : true;
         });
 
-        let lastNode: AudioSinkNode | AudioPlugin = state.sinkNode;
+        let lastNode: GainNode | AudioPlugin = state.inputNode;
         for (const plugin of activePlugins) {
-            lastNode.connect(plugin);
+            if (lastNode instanceof AudioNode) {
+                plugin.receiveInput(lastNode);
+            } else {
+                lastNode.connect(plugin);
+            }
             lastNode = plugin;
         }
 
         const targetNode = trackId === MASTER_TRACK_ID ? this.audioContext!.destination : this.masterPreNode!;
-        lastNode.connect(targetNode);
+
+        if (lastNode instanceof AudioPlugin) {
+            lastNode.connect(state.sinkNode);
+        } else {
+            state.sinkNode.receiveInput(lastNode as any);
+        }
+
+        state.sinkNode.connect(targetNode);
     }
 
     // Playback
