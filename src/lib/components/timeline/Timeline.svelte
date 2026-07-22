@@ -673,6 +673,7 @@
                     <div
                         class="track-row"
                         class:selected={ui.selectedTrackId === track.id}
+                        style="border-left: 3px solid {track.color}"
                         role="button"
                         tabindex="-1"
                         onkeydown={() => {}}
@@ -781,8 +782,10 @@
                 >
                     <TimelineGrid width={gridWidth} height={totalHeight} />
                     {#each timeline.clips as clip (clip.id)}
+                        {@const track = timeline.getTrackById(clip.trackId)}
                         <TimelineClip
                             {clip}
+                            color={track?.color}
                             onDragStart={handleClipDragStart}
                             onResizeStart={handleClipResizeStart}
                             onVolumeStart={handleClipVolumeStart}

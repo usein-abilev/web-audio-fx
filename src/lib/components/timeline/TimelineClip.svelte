@@ -3,20 +3,24 @@
     import { bufferStore } from "$lib/stores/buffer.svelte";
     import { ui } from "$lib/stores/ui.svelte";
     import { generateWaveformPath } from "$lib/utils/waveform";
+    import { darkenColor } from "$lib/utils/color";
 
     let {
         clip,
+        color = "var(--accent-blue, #34498c)",
         onDragStart,
         onResizeStart,
         onVolumeStart,
     }: {
         clip: TimelineClipType;
+        color?: string;
         onDragStart?: (clipId: number, mouseX: number, mouseY: number) => void;
         onResizeStart?: (clipId: number, edge: "left" | "right", e: MouseEvent) => void;
         onVolumeStart?: (clipId: number, e: MouseEvent) => void;
     } = $props();
 
     let selected = $derived(ui.selectedClipIds.has(clip.id));
+    const colorDark = $derived(darkenColor(color, 0.15));
 
     const x = $derived(timeline.musicalTimeToX(clip.time));
     const y = $derived(clip.trackId * timeline.trackHeight);
@@ -101,14 +105,14 @@
         {y}
         width={clipWidth}
         height={timeline.trackHeight}
-        fill="var(--accent-blue, #34498c)"
+        fill={color}
         stroke={selected ? "var(--accent-primary)" : "#1e1e1e"}
         stroke-width={selected ? 2 : 1}
         rx="2"
     />
 
     <!-- Clip header -->
-    <rect {x} {y} width={clipWidth} height={20} fill="var(--accent-blue-dark, #233161)" rx="2" />
+    <rect {x} {y} width={clipWidth} height={20} fill={colorDark} rx="2" />
 
     <!-- Clip name -->
     <foreignObject x={x + 4} y={y + 1} width={Math.max(0, clipWidth - 8)} height={18} pointer-events="none">

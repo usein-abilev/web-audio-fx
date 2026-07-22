@@ -27,7 +27,10 @@ export type TimelineTrack = {
     muted: boolean;
     solo: boolean;
     pluginIds: string[];
+    color: string;
 };
+
+export const TRACK_COLORS: string[] = ["#3b5998", "#c9a82c", "#3a8a5c", "#b53535", "#c47a20"];
 
 export const MASTER_TRACK_ID = -1;
 
@@ -46,23 +49,18 @@ class TimelineState {
     timeSignature = $state({ top: 4, bottom: 4 });
 
     clips = $state<TimelineClip[]>([]);
-    tracks = $state<TimelineTrack[]>([
-        { id: 0, name: "Track 1", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 1, name: "Track 2", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 2, name: "Track 3", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 3, name: "Track 4", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 4, name: "Track 5", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 5, name: "Track 6", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 6, name: "Track 7", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 7, name: "Track 8", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 8, name: "Track 9", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 9, name: "Track 10", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 10, name: "Track 11", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 11, name: "Track 12", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 12, name: "Track 13", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 13, name: "Track 14", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-        { id: 14, name: "Track 15", gain: 1, pan: 0, muted: false, solo: false, pluginIds: [] },
-    ]);
+    tracks = $state<TimelineTrack[]>(
+        Array.from({ length: 15 }, (_, i) => ({
+            id: i,
+            name: `Track ${i + 1}`,
+            gain: 1,
+            pan: 0,
+            muted: false,
+            solo: false,
+            pluginIds: [],
+            color: TRACK_COLORS[i % TRACK_COLORS.length],
+        })),
+    );
 
     masterTrack = $state<TimelineTrack>({
         id: MASTER_TRACK_ID,
@@ -72,6 +70,7 @@ class TimelineState {
         muted: false,
         solo: false,
         pluginIds: [],
+        color: "#3b5998",
     });
 
     gridStep = $state<GridStep>("1/4");

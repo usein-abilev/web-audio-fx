@@ -2,7 +2,7 @@ import PLUGINS from "$lib/audio/plugins/index";
 import { AudioPlugin } from "$lib/audio/plugins/plugin";
 import { AudioSinkNode } from "$lib/audio/nodes/sink.node";
 import { Scheduler } from "$lib/audio/scheduler";
-import { timeline, MASTER_TRACK_ID, type TimelineTrack } from "./timeline.svelte";
+import { timeline, MASTER_TRACK_ID, TRACK_COLORS, type TimelineTrack } from "./timeline.svelte";
 import { samples } from "./samples.svelte";
 import { bufferStore } from "$lib/stores/buffer.svelte";
 import type { TrackAudioState } from "./types";
@@ -442,6 +442,7 @@ class AudioEngine {
                         muted: false,
                         solo: false,
                         pluginIds: [],
+                        color: TRACK_COLORS[newId % TRACK_COLORS.length],
                     };
                     timeline.tracks.push(newTrack);
                     this.createTrackAudio(newTrack);
